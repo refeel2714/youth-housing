@@ -17,3 +17,5 @@ export async function closeDb(): Promise<void> {
   await client?.end();
   client = undefined;
 }
+
+export type Sql = postgres.Sql;
