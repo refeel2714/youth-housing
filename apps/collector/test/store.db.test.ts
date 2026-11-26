@@ -47,6 +47,18 @@ describe.skipIf(!url)('store (DB)', () => {
     expect((await schedules()).map(s => s.kind)).toEqual(['announce', 'apply_start', 'apply_end']);
   });
 
+  it('미검수 공고도 본문이 그대로면 상태만 바꾼다(검수 화면 임시 저장을 덮지 않음)', async () => {
+    await sql`update notices set title = '검수자가 고친 제목', region_codes = '{11000,11590}' where external_id = '6889'`;
+    const [cur] = await sql`select raw_text from notices where external_id = '6889'`;
+    const n = notice();
+    n.rawText = cur!.raw_text as string; // 직전 테스트에서 바뀐 본문과 같게
+    n.schedules = n.schedules.filter(s => s.kind !== 'doc_result');
+    n.status = 'open';
+    expect(await saveNotice(sql, sourceId, n)).toBe('updated');
+    const [row] = await sql`select title, region_codes, status from notices where external_id = '6889'`;
+    expect(row).toMatchObject({ title: '검수자가 고친 제목', region_codes: ['11000', '11590'], status: 'open' });
+  });
+
   it('검수 완료 공고는 상태·본문만 바꾸고 일정은 그대로', async () => {
     await sql`update notices set parse_status = 'verified', verified_at = now() where external_id = '6889'`;
     const before = await schedules();

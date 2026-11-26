@@ -138,7 +138,7 @@ describe.skipIf(!url)('public routes (DB)', () => {
     };
     expect(verdict('동대문구')).toBe('pass');
     expect(verdict('마포구')).toBe('pass');
-    expect(verdict('수원영통')).toBe('unknown'); // 청년: 도시근로자 기준표 없음, 대학생: 학생 아님
+    expect(verdict('수원영통')).toBe('pass'); // 청년: 2025년도 도시근로자 기준표로 판정(대학생 규칙은 학생 아님)
     expect(verdict('인천 연수구')).toBe('fail');  // 인천 거주 요건
     expect(verdict('고양')).toBe('none');        // 규칙 정리 전
   });

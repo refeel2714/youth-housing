@@ -1,7 +1,7 @@
 // 수집 결과 적재. 공고는 (source_id, external_id)로 upsert 한다.
 // - 검수 완료(verified) 공고: 상태(status)만 갱신. 본문이 바뀌면 raw_text·content_hash 만 바꾸고
-//   updated_at > verified_at 으로 검수 화면에서 "다시 확인"이 보이게 한다(일정·규칙은 손대지 않음).
-// - 그 외: 본문이 바뀌면 parse_status 를 pending 으로 되돌리고 일정을 다시 넣는다.
+//   content_hash ≠ verified_content_hash 가 되어 검수 화면 "다시 확인"에 뜬다(일정·규칙은 손대지 않음).
+// - 그 외: 본문이 바뀌면 parse_status 를 pending 으로 되돌리고 일정을 다시 넣는다. 본문이 그대로면 상태만 바꾼다.
 import { createHash } from 'node:crypto';
 import type { Sql } from '@yh/db';
 import type { RegionRow } from './lib/regions.js';
@@ -71,14 +71,18 @@ export async function saveNotice(sql: Sql, sourceId: number, n: CollectedNotice)
     } else {
       const changed = cur.content_hash !== hash;
       if (!changed && cur.status === n.status) return 'unchanged';
+      if (!changed) {
+        // 본문이 그대로면 상태만 바꾼다(검수 화면에서 임시 저장한 제목·지역 등을 덮지 않게)
+        await tx`update notices set status = ${n.status} where id = ${cur.id}`;
+        return 'updated';
+      }
       await tx`
         update notices set
           title = ${n.title}, housing_type = ${n.housingType}, url_original = ${n.urlOriginal},
           url_apply = ${n.urlApply}, published_at = ${n.publishedAt}, status = ${n.status},
           region_codes = ${n.regionCodes}, raw_text = ${n.rawText}, content_hash = ${hash}
-          ${changed && cur.parse_status !== 'rejected' ? tx`, parse_status = 'pending'` : tx``}
+          ${cur.parse_status !== 'rejected' ? tx`, parse_status = 'pending'` : tx``}
         where id = ${cur.id}`;
-      if (!changed) return 'updated';
       noticeId = cur.id;
       result = 'updated';
     }
