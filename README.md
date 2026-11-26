@@ -33,9 +33,12 @@ DB: `supabase link` 후 `supabase db push`, 시드는 처음 한 번 `psql "$DIR
 | 경로 | 내용 |
 | --- | --- |
 | `GET /api/calendar?month=YYYY-MM&regions=&types=` | 그 달(KST)에 걸친 일정. 여러 날 일정은 걸친 달마다 나온다 |
-| `GET /api/notices?status=open,upcoming&regions=&types=&q=&limit=&cursor=` | 접수 중(마감 임박순) → 예정(시작 빠른순) → 마감 |
+| `GET /api/notices?status=open,upcoming&regions=&types=&ids=&q=&limit=&cursor=` | 접수 중(마감 임박순) → 예정(시작 빠른순) → 마감. `ids`는 관심 공고(최대 100개) |
 | `GET /api/notices/:id` | 일정·공급 세대·자격 규칙·소득 기준표 |
 | `GET /api/regions` | 지역 목록 |
+| `POST /api/feeds` | 캘린더 구독 만들기 `{ noticeIds, regionCodes, alarmDays }` → `{ token, key, url }` (같은 IP 한 시간 20번) |
+| `PUT·DELETE /api/feeds/:token` | `Authorization: Bearer <key>`로 목록 갈아 끼우기·구독 끊기 |
+| `GET /ics/:token.ics` | 캘린더 앱이 받아 가는 iCalendar |
 
 - 화면에 나오는 공고: 검수 완료(`verified`) + 미검수라도 접수 시작·마감 일정이 뽑힌 공고(자동 공개, 앱에 "자동 수집" 표시). 반려(앱에서 내림)는 안 나온다.
   - `AUTO_PUBLISH=all`(기본) | `api`(LH 등 API 소스만 자동 공개) | `off`(검수 완료만)
@@ -45,6 +48,16 @@ DB: `supabase link` 후 `supabase db push`, 시드는 처음 한 번 `psql "$DIR
 - 예시 공고로 화면 보기: `psql "$DATABASE_URL" -f supabase/dev-fixtures.sql` (실행한 날 기준 상대 날짜, 제목이 `[예시]`, 다시 넣으면 갈아 끼움).
 - 웹 번들은 zod 가 딸려 오지 않도록 `@yh/schema/constants`만 import 한다.
 - API DB 테스트: `TEST_DATABASE_URL=... pnpm --filter @yh/api test`
+
+## 관심·캘린더 구독 (`/watch`)
+
+로그인 없이 쓴다. 관심 공고·관심 지역·알림 설정은 기기 저장소(`yh.watch.v1`, `apps/web/src/watch/store.ts`)에 있다.
+
+- "내 캘린더에 추가하기"를 누르면 그 목록으로 `calendar_feeds` 행을 만든다. `token`은 구독 주소용, `key`는 수정용으로 기기에만 남고 서버엔 해시만 있다. 이후 관심 목록이 바뀌면 기기가 `PUT`으로 갈아 끼운다(오프라인이면 다음에 열 때 다시 올림, 404면 구독을 지운 것으로 본다).
+- 구독 내용: 관심 공고는 모든 일정, 관심 지역(시도·시군구) 공고는 접수 시작·마감. 화면에 보이는 공고만, 취소 제외, 끝난 지 60일 안 된 일정 ~ 1년 뒤. 캘린더 앱에 6시간마다 새로 받기를 권한다.
+- 알림: 접수 시작·마감·서류 제출·계약에 VALARM(종일 일정은 며칠 전 오전 9시). 애플 캘린더는 따르고, 구글 캘린더는 구독 캘린더 알림을 무시한다.
+- 구독 주소 앞부분은 `PUBLIC_BASE_URL`(없으면 요청 주소), 일정 설명의 상세 링크는 `APP_ORIGIN`.
+- 로그인이 붙으면: `calendar_feeds.user_id`로 기기 구독을 계정에 연결하고, 기기 관심 목록을 `watches`로 옮긴다. 이메일 알림 대상 선정은 `apps/api/src/feeds/store.ts`의 같은 선택 기준(`REGION_KINDS`, `ALARM_KINDS`)을 쓴다.
 
 ## 검수 화면 (`/admin`)
 

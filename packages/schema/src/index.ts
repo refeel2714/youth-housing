@@ -1,6 +1,6 @@
 // DB enum과 같은 값은 constants.ts. 바꿀 때는 마이그레이션도 함께 바꾼다.
 import { z } from 'zod';
-import { HOMELESS_SCOPES, INCOME_BASES, TARGET_GROUPS } from './constants.js';
+import { FEED_LIMITS, HOMELESS_SCOPES, INCOME_BASES, TARGET_GROUPS } from './constants.js';
 
 export * from './constants.js';
 
@@ -63,3 +63,10 @@ export const incomeStandard = z.object({
 });
 export type IncomeStandard = z.infer<typeof incomeStandard>;
 
+
+/** 캘린더 구독 요청 본문(POST·PUT /api/feeds) */
+export const feedSelection = z.object({
+  noticeIds: z.array(z.string().uuid()).max(FEED_LIMITS.notices).default([]),
+  regionCodes: z.array(regionCode).max(FEED_LIMITS.regions).default([]),
+  alarmDays: z.array(z.number().int().min(0).max(FEED_LIMITS.alarmMaxDays)).max(FEED_LIMITS.alarms).default([1]),
+}).strict();

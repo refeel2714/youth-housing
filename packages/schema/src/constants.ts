@@ -137,3 +137,18 @@ export interface EligibilityBundleResponse {
   /** items 의 규칙들이 참조하는 소득 기준표 */
   incomeStandards: IncomeStandard[];
 }
+
+/**
+ * 캘린더 구독(.ics)에 넣을 대상. 로그인 없이 기기의 관심 목록을 그대로 올린다.
+ * - noticeIds: 관심 공고(모든 일정)
+ * - regionCodes: 관심 지역(그 지역 공고의 접수 시작·마감). 시도 코드(XX000)면 시도 전체
+ * - alarmDays: 일정 며칠 전 오전 9시에 캘린더 앱 알림(애플 캘린더 등. 구글 캘린더 구독은 알림을 무시한다)
+ */
+export interface FeedSelection {
+  noticeIds: string[];
+  regionCodes: string[];
+  alarmDays: number[];
+}
+export const FEED_LIMITS = { notices: 200, regions: 50, alarms: 3, alarmMaxDays: 14 } as const;
+/** POST /api/feeds 응답. key 는 이때 한 번만 내려 주고 서버에는 해시만 남는다 */
+export interface FeedCreated { token: string; key: string; url: string }

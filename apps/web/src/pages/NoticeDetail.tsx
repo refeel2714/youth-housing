@@ -9,6 +9,7 @@ import { daysUntil, ddayLabel, fmtDate, todayKst } from '../lib/dates';
 import { fmtSchedule, fmtWon } from '../lib/format';
 import { useAsync } from '../lib/useAsync';
 import { useProfile } from '../profile/store';
+import { isWatched, toggleNotice, useWatch } from '../watch/store';
 
 export function NoticeDetail() {
   const { id = '' } = useParams();
@@ -19,6 +20,7 @@ export function NoticeDetail() {
       <header className="page-head with-back">
         <BackButton />
         <h1 className="sr-only">공고 상세</h1>
+        {res.status === 'ok' && <WatchButton id={res.data.id} title={res.data.title} />}
       </header>
       {res.status === 'loading' && <Loading />}
       {res.status === 'error' && (
@@ -28,6 +30,26 @@ export function NoticeDetail() {
       )}
       {res.status === 'ok' && <Body d={res.data} />}
     </main>
+  );
+}
+
+function WatchButton({ id, title }: { id: string; title: string }) {
+  const on = isWatched(useWatch(), id);
+  return (
+    <button type="button" className={`watch-btn${on ? ' on' : ''}`} aria-pressed={on} onClick={() => toggleNotice({ id, title })}>
+      <span aria-hidden>{on ? '★' : '☆'}</span> 관심
+    </button>
+  );
+}
+
+/** 관심을 눌렀는데 아직 캘린더 구독을 안 했으면 한 줄 안내 */
+function WatchHint({ id }: { id: string }) {
+  const w = useWatch();
+  if (!isWatched(w, id) || w.feed) return null;
+  return (
+    <p className="muted small">
+      관심 공고에 담았어요. <Link to="/watch" className="link">관심 탭에서 일정을 내 캘린더로 받을 수 있어요</Link>
+    </p>
   );
 }
 
@@ -61,6 +83,7 @@ function Body({ d }: { d: Detail }) {
         )}
         <ExternalButton href={d.urlOriginal} primary={!d.urlApply || d.status === 'closed'}>공고 원문 보기</ExternalButton>
       </div>
+      <WatchHint id={d.id} />
 
       <section className="card">
         <h3>일정</h3>
