@@ -6,7 +6,7 @@ import { RegionResolver } from '../src/lib/regions.js';
 import { extractSchedules } from '../src/lib/schedule-text.js';
 import { parseSeedRegions } from '../src/lib/seed-regions.js';
 import { statusFromSchedules } from '../src/lib/status.js';
-import { datasets, detailToText, housingTypeOf, isYouthRelevant } from '../src/sources/lh-api.js';
+import { datasets, detailToText, housingTypeOf, isYouthRelevant, schedulesFromDetail, toNotice as lhToNotice } from '../src/sources/lh-api.js';
 import { parseAttachments, toNotice, type SeoulListResponse } from '../src/sources/seoul-housing.js';
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
@@ -161,5 +161,49 @@ describe('LH 응답 다루기', () => {
     expect(isYouthRelevant({ AIS_TP_CD_NM: '국민임대', PAN_NM: '수원 국민임대 예비입주자 모집' })).toBe(false);
     expect(housingTypeOf({ AIS_TP_CD_NM: '행복주택', PAN_NM: 'x' })).toBe('happy_house');
     expect(housingTypeOf({ AIS_TP_CD_NM: '매입임대', PAN_NM: '2026년 청년 매입임대주택 입주자 모집' })).toBe('youth_purchase_rental');
+  });
+});
+
+describe('LH 상세 일정(활용가이드 예제)', () => {
+  const detail = JSON.parse(fixture('lh-detail-062.json'));
+  const listRow = {
+    PAN_SS: '접수중', RNUM: '1', PAN_NT_ST_DT: '2016.12.23', AIS_TP_CD: '07', SPL_INF_TP_CD: '062',
+    CNP_CD_NM: '경기도', PAN_ID: '2015122300001155', UPP_AIS_TP_NM: '임대주택', AIS_TP_CD_NM: '행복주택',
+    CLSG_DT: '2017.01.06', PAN_DT: '20161223', UPP_AIS_TP_CD: '06', PAN_NM: '오산세교 행복주택 입주자 모집',
+    ALL_CNT: '1', DTL_URL: ' https://apply.lh.or.kr/lhapply/apply/wt/wrtanc/selectWrtancInfo.do?panId=2015122300001155&mi=1026',
+    CCR_CNNT_SYS_DS_CD: '03',
+  };
+
+  it('dsSplScdl → 일정. 같은 날이면 시각 있는 신청일시를 남기고, 단지별 중복은 합친다', () => {
+    const ds = datasets(detail);
+    expect(schedulesFromDetail(ds).map(s => [s.kind, s.startsAt, s.allDay])).toEqual([
+      ['apply_start', '2017-01-02T00:00:00+09:00', true],
+      ['apply_start', '2017-01-06T10:00:00+09:00', false],
+      ['apply_end', '2017-01-06T16:00:00+09:00', false],
+      ['winner', '2017-01-30T00:00:00+09:00', true],
+    ]);
+  });
+
+  it('공고 하나로: 단지 주소로 지역, 라벨 표(…Nm)는 본문에서 뺀다', () => {
+    const n = lhToNotice(listRow, detail, { regions, now: new Date('2026-11-26T12:00:00+09:00') });
+    expect(n).toMatchObject({
+      externalId: '2015122300001155',
+      housingType: 'happy_house',
+      publishedAt: '2016-12-23',
+      status: 'closed',
+      urlOriginal: 'https://apply.lh.or.kr/lhapply/apply/wt/wrtanc/selectWrtancInfo.do?panId=2015122300001155&mi=1026',
+    });
+    // 오산시 + 경기도, 인천 "서구"는 2026-07 개편 전 이름이라 시도 코드만. 접수처(진주시)는 제외
+    expect(n.regionCodes).toEqual(['28000', '41000', '41370']);
+    expect(n.rawText).toContain('LGDN_ADR: 경기도 오산시 여계산로');
+    expect(n.rawText).toContain('AHFL_URL: https://apply.lh.or.kr/lhapply/lhFile.do?fileid=26091001');
+    expect(n.rawText).not.toContain('dsSbdNm');
+    expect(n.schedules[0]).toMatchObject({ kind: 'announce', startsAt: '2016-12-23T00:00:00+09:00' });
+  });
+
+  it('상세가 비어도 목록 게시일·마감일로 일정', () => {
+    const n = lhToNotice(listRow, [], { regions, now: new Date('2017-01-03T12:00:00+09:00') });
+    expect(n.schedules.map(s => s.kind)).toEqual(['announce', 'apply_end']);
+    expect(n.regionCodes).toEqual(['41000']);
   });
 });
