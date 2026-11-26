@@ -10,19 +10,23 @@ import {
 } from './auth.js';
 import { formFromBody, parseNoticeForm } from './form.js';
 import { QUEUE_TABS, listQueue, loadNotice, loadRegions, queueCounts, saveNotice, setReviewState, type QueueTab } from './queries.js';
+import { autoPublishFromEnv } from '../routes/public.js';
+import type { Visibility } from '../queries.js';
 import { loginPage, noticePage, notFoundPage, queuePage } from './views.js';
 
 export interface AdminDeps {
   sql?: () => Sql;
   /** 없으면 환경변수(ADMIN_PASSWORD, SESSION_SECRET). null 이면 꺼짐 */
   config?: AdminConfig | null;
+  /** 공개 API 와 같은 노출 규칙(목록의 "앱에 노출 중" 표시용) */
+  visibility?: Visibility;
 }
 
 type Env = { Variables: { reviewer: string } };
 
 const FLASH: Record<string, string> = {
-  saved: '임시 저장했습니다.', approved: '승인했습니다. 공개 화면에 나옵니다.', rejected: '반려했습니다.',
-  unpublished: '공개를 내리고 검수 대기로 돌렸습니다.',
+  saved: '저장했습니다.', approved: '검수 완료로 저장했습니다.', rejected: '앱에서 내렸습니다.',
+  unpublished: '검수 완료를 풀고 미검수로 돌렸습니다.', restored: '다시 미검수로 돌렸습니다. 접수 일정이 있으면 앱에 나옵니다.',
 };
 
 function sameOrigin(c: Context): boolean {
@@ -43,6 +47,9 @@ export function adminRoutes(deps: AdminDeps = {}) {
   const sql = deps.sql ?? db;
   const cfg = deps.config === undefined ? adminConfigFromEnv() : deps.config;
   const limiter = new LoginLimiter();
+  const vis: Visibility = deps.visibility ?? {
+    showUnverified: process.env.PUBLIC_SHOW_UNVERIFIED === '1', autoPublish: autoPublishFromEnv(),
+  };
   const r = new Hono<Env>();
 
   r.use('*', async (c, next) => {
@@ -95,11 +102,26 @@ export function adminRoutes(deps: AdminDeps = {}) {
     const q = c.req.query('q')?.trim().slice(0, 50) ?? '';
     const offset = Math.min(Math.max(Number(c.req.query('offset')) || 0, 0), 10_000);
     const limit = 30;
-    const [counts, list] = await Promise.all([queueCounts(sql()), listQueue(sql(), tab, q || null, limit, offset)]);
+    const [counts, list] = await Promise.all([queueCounts(sql()), listQueue(sql(), tab, q || null, limit, offset, vis)]);
+    const back = '/admin?' + new URLSearchParams({ tab, ...(q ? { q } : {}), ...(offset ? { offset: String(offset) } : {}) }).toString();
     return c.html(queuePage({
-      reviewer: c.get('reviewer'), tab, counts, items: list.items, hasMore: list.hasMore, q, offset, limit,
+      reviewer: c.get('reviewer'), tab, counts, back, items: list.items, hasMore: list.hasMore, q, offset, limit,
       flash: FLASH[c.req.query('done') ?? ''],
     }));
+  });
+
+  // 목록에서 바로 앱에서 내리기 / 되살리기. back 은 돌아갈 목록 주소(/admin 으로 시작할 때만)
+  r.post('/notices/:id/hide', async c => {
+    const id = c.req.param('id');
+    if (!isUuid(id)) return c.html(notFoundPage(c.get('reviewer')), 404);
+    const body = await c.req.parseBody();
+    const restore = body.restore === '1';
+    const ok = await setReviewState(sql(), id, restore ? 'pending' : 'rejected', restore ? null : '목록에서 내림', c.get('reviewer'));
+    if (!ok) return c.html(notFoundPage(c.get('reviewer')), 404);
+    const back = typeof body.back === 'string' && /^\/admin(\?[^\s]*)?$/.test(body.back) ? body.back : '/admin';
+    const url = new URL(back, 'http://x');
+    url.searchParams.set('done', restore ? 'restored' : 'rejected');
+    return c.redirect(url.pathname + url.search, 303);
   });
 
   r.get('/notices/:id', async c => {

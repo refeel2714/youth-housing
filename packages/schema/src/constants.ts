@@ -94,6 +94,8 @@ export interface NoticeSummary {
   housingType: HousingType;
   status: NoticeStatus;
   publishedAt: string | null;
+  /** 운영자가 검수한 공고. false 면 수집기가 뽑은 일정으로 자동 공개된 공고 */
+  verified: boolean;
   regionCodes: string[];
   regionNames: string[];
   sourceName: string;

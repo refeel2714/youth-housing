@@ -11,10 +11,10 @@ import type { LoadedNotice, NoticeMeta, ParseStatus, QueueItem, QueueTab, Region
 type H = ReturnType<typeof html>;
 
 const TAB_LABELS: Record<QueueTab, string> = {
-  queue: '검수 대기', recheck: '다시 확인', verified: '공개 중', rejected: '반려',
+  queue: '미검수', recheck: '다시 확인', verified: '검수 완료', rejected: '내린 공고',
 };
 const PARSE_LABELS: Record<ParseStatus, string> = {
-  pending: '대기', llm_parsed: '자동 파싱됨', verified: '공개 중', rejected: '반려',
+  pending: '미검수', llm_parsed: '자동 파싱됨', verified: '검수 완료', rejected: '내림',
 };
 const HOMELESS_LABELS: Record<string, string> = { self: '본인 무주택', household: '세대 전원 무주택', none: '조건 없음' };
 const INCOME_LABELS: Record<string, string> = { median: '기준중위소득', urban_worker: '도시근로자 월평균소득' };
@@ -39,7 +39,9 @@ nav.tabs a{padding:8px 0;color:var(--sub);border-bottom:2px solid transparent}
 nav.tabs a.on{color:var(--text);font-weight:700;border-color:var(--text)}
 nav.tabs .n{color:var(--muted);margin-left:4px;font-weight:400}
 .rows{list-style:none;margin:0;padding:0}.rows li{border-bottom:1px solid var(--hair);padding:12px 0}
-.rows .t{font-weight:600;color:var(--text)}.meta{color:var(--muted);font-size:13px}
+.rows .t{font-weight:600;color:var(--text)}
+.qrow{display:flex;gap:16px;align-items:center;justify-content:space-between}.qact{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.qact form{margin:0}.meta{color:var(--muted);font-size:13px}
 .meta span+span::before{content:'·';margin:0 6px}
 .badge{display:inline-block;font-size:12px;padding:1px 6px;border-radius:6px;background:var(--fill);color:var(--sub);margin-right:6px}
 .badge.verified{color:var(--ok)}.badge.rejected{color:var(--danger)}.badge.warn{color:var(--warn)}
@@ -110,7 +112,7 @@ ${o.error ? html`<p class="err-box">${o.error}</p>` : ''}
 const typeLabel = (t: string) => HOUSING_TYPE_LABELS[t as HousingType] ?? t;
 
 export function queuePage(o: {
-  reviewer: string; tab: QueueTab; counts: Record<QueueTab, number>; items: QueueItem[];
+  reviewer: string; tab: QueueTab; counts: Record<QueueTab, number>; items: QueueItem[]; back: string;
   q: string; offset: number; limit: number; hasMore: boolean; flash?: string;
 }): H {
   const qs = (extra: Record<string, string | number>) =>
@@ -120,9 +122,10 @@ ${o.flash ? html`<p class="flash">${o.flash}</p>` : ''}
 <nav class="tabs">${(Object.keys(TAB_LABELS) as QueueTab[]).map(t => html`<a href="/admin?tab=${t}" class="${t === o.tab ? 'on' : ''}">${TAB_LABELS[t]}<span class="n">${o.counts[t]}</span></a>`)}</nav>
 <form class="search" method="get" action="/admin"><input type="hidden" name="tab" value="${o.tab}">
 <input name="q" value="${o.q}" placeholder="제목 또는 공고 번호" style="width:280px"><button type="submit">찾기</button></form>
+${o.tab === 'queue' ? html`<p class="hint">접수 일정이 뽑힌 미검수 공고는 앱에 자동으로 나옵니다. 잘못 수집된 공고는 "앱에서 내리기"로 숨기세요(다음 수집 때 다시 올라오지 않습니다).</p>` : ''}
 ${o.tab === 'recheck' ? html`<p class="hint">검수 뒤 수집기가 원문 본문이 바뀐 것을 가져온 공고입니다. 바뀐 내용을 확인하고 다시 저장하면 목록에서 빠집니다.</p>` : ''}
 ${o.items.length === 0 ? html`<p class="meta" style="padding:24px 0">공고가 없습니다.</p>` : ''}
-<ul class="rows">${o.items.map(i => html`<li>
+<ul class="rows">${o.items.map(i => html`<li class="qrow"><div>
 <a class="t" href="/admin/notices/${i.id}">${i.title}</a>
 <div class="meta"><span><span class="badge ${i.parseStatus}">${PARSE_LABELS[i.parseStatus]}</span>${i.sourceName}</span>
 <span>${typeLabel(i.housingType)}</span>
@@ -130,8 +133,16 @@ ${i.publishedAt ? html`<span>공고 ${i.publishedAt}</span>` : ''}
 <span>${i.applyStart || i.applyEnd ? `접수 ${i.applyStart ?? '?'} ~ ${i.applyEnd ?? '?'}` : '접수 일정 없음'}</span>
 <span>일정 ${i.scheduleCount} · 자격 ${i.ruleCount}</span>
 <span>수집 ${i.collectedAt}</span>
-${i.verifiedBy ? html`<span>${i.parseStatus === 'rejected' ? '반려' : '검수'} ${i.verifiedBy} ${i.verifiedAt ?? ''}</span>` : ''}
-${i.reviewNote ? html`<span>메모: ${i.reviewNote}</span>` : ''}</div></li>`)}</ul>
+${i.verifiedBy ? html`<span>${i.parseStatus === 'rejected' ? '내림' : '검수'} ${i.verifiedBy} ${i.verifiedAt ?? ''}</span>` : ''}
+${i.reviewNote ? html`<span>메모: ${i.reviewNote}</span>` : ''}</div></div>
+<div class="qact">${i.exposed ? html`<span class="badge verified">앱에 노출 중</span>`
+    : i.parseStatus === 'rejected' ? '' : html`<span class="badge warn">앱에 안 나옴(접수 일정 없음)</span>`}
+<form method="post" action="/admin/notices/${i.id}/hide"><input type="hidden" name="back" value="${o.back}">
+${i.parseStatus === 'rejected'
+    ? html`<input type="hidden" name="restore" value="1"><button type="submit">되살리기</button>`
+    : html`<button class="danger" type="submit" data-confirm="이 공고를 앱에서 내릴까요?">앱에서 내리기</button>`}
+</form></div></li>`)}</ul>
+<script>${raw(CONFIRM_SCRIPT)}</script>
 <div class="pager">${o.offset > 0 ? html`<a href="/admin${qs({ offset: Math.max(o.offset - o.limit, 0) })}">← 이전</a>` : ''}
 ${o.hasMore ? html`<a href="/admin${qs({ offset: o.offset + o.limit })}">다음 →</a>` : ''}</div>`;
   return page(TAB_LABELS[o.tab], body, o.reviewer);
@@ -216,7 +227,7 @@ function highlight(text: string): H {
 function statusLine(m: NoticeMeta): H {
   return html`<div class="meta"><span><span class="badge ${m.parseStatus}">${PARSE_LABELS[m.parseStatus]}</span>${m.sourceName} ${m.externalId}</span>
 <span>수집 ${m.collectedAt}</span><span>마지막 변경 ${m.updatedAt}</span>
-${m.verifiedBy ? html`<span>${m.parseStatus === 'rejected' ? '반려' : '검수'} ${m.verifiedBy} ${m.verifiedAt ?? ''}</span>` : ''}</div>`;
+${m.verifiedBy ? html`<span>${m.parseStatus === 'rejected' ? '내림' : '검수'} ${m.verifiedBy} ${m.verifiedAt ?? ''}</span>` : ''}</div>`;
 }
 
 export function noticePage(o: {
@@ -279,18 +290,18 @@ ${rules.length === 0 ? html`<p class="hint" id="no-rules">아직 자격 조건�
 
 <div class="actions">
 ${verified
-    ? html`<button class="primary" name="action" value="approve">수정 저장(공개 유지)</button>
-<button name="action" value="unpublish" formnovalidate>공개 내리기(검수 대기로)</button>`
-    : html`<button class="primary" name="action" value="approve">승인하고 공개</button>
-<button name="action" value="save">임시 저장</button>`}
+    ? html`<button class="primary" name="action" value="approve">저장</button>
+<button name="action" value="unpublish" formnovalidate>미검수로 되돌리기</button>`
+    : html`<button class="primary" name="action" value="approve">검수 완료로 저장</button>
+<button name="action" value="save">저장(미검수 유지)</button>`}
 <span class="gap"></span>
 ${meta.parseStatus === 'rejected'
-    ? html`<span class="hint">반려된 공고입니다. 승인하면 다시 공개됩니다.</span>`
-    : html`<button class="danger" name="action" value="reject" formnovalidate data-confirm="반려할까요? 공개 화면에서 빠지고 수집기가 다시 대기열에 올리지 않습니다.">반려</button>`}
+    ? html`<span class="hint">앱에서 내린 공고입니다. 검수 완료로 저장하면 다시 나옵니다.</span>`
+    : html`<button class="danger" name="action" value="reject" formnovalidate data-confirm="앱에서 내릴까요? 다음 수집 때도 다시 올라오지 않습니다.">앱에서 내리기</button>`}
 </div>
 </form>
 </div>
-<script>${raw(SCRIPT)}</script>`;
+<script>${raw(SCRIPT)}${raw(CONFIRM_SCRIPT)}</script>`;
   return page(f.title || '공고', body, o.reviewer);
 }
 
@@ -303,6 +314,8 @@ document.querySelectorAll('[data-add]').forEach(function(btn){btn.addEventListen
   if(k==='sched'){var tb=document.createElement('tbody');tb.innerHTML=tpl;box.appendChild(tb.firstElementChild);}
   else{var d=document.createElement('div');d.innerHTML=tpl;box.appendChild(d.firstElementChild);var n=document.getElementById('no-rules');if(n)n.remove();}
   countEl.value=String(i+1);});});
+`;
+const CONFIRM_SCRIPT = `
 document.querySelectorAll('[data-confirm]').forEach(function(b){b.addEventListener('click',function(ev){
   if(!window.confirm(b.getAttribute('data-confirm')))ev.preventDefault();});});
 `;

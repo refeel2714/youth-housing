@@ -57,6 +57,25 @@ describe.skipIf(!url)('admin routes (DB)', () => {
     expect(edit).toContain('value="10:00"');
   });
 
+  it('미검수라도 접수 일정이 있으면 앱에 자동 공개(자동 수집 표시), 목록에서 내리기·되살리기', async () => {
+    const res = await app.request(`/api/notices/${id}`);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { verified: boolean }).verified).toBe(false);
+    const off = createApp({ sql: () => sql, showUnverified: false, autoPublish: 'off' });
+    expect((await off.request(`/api/notices/${id}`)).status).toBe(404);
+    const apiOnly = createApp({ sql: () => sql, showUnverified: false, autoPublish: 'api' });
+    expect((await apiOnly.request(`/api/notices/${id}`)).status).toBe(404); // 서울주거포털은 크롤링 소스
+    expect(await (await get('/admin?tab=queue&q=검수테스트')).text()).toContain('앱에 노출 중');
+
+    const hide = await post(`/admin/notices/${id}/hide`, { back: '/admin?tab=queue&q=x' });
+    expect(hide.status).toBe(303);
+    expect(hide.headers.get('location')).toBe('/admin?tab=queue&q=x&done=rejected');
+    expect((await app.request(`/api/notices/${id}`)).status).toBe(404);
+    const restore = await post(`/admin/notices/${id}/hide`, { restore: '1', back: 'https://evil.example/' });
+    expect(restore.headers.get('location')).toBe('/admin?done=restored');
+    expect((await app.request(`/api/notices/${id}`)).status).toBe(200);
+  });
+
   const form = (extra: Record<string, string | string[]> = {}) => ({
     title: '[검수테스트] 동작구 청년안심주택', housingType: 'youth_safe_public', urlOriginal: 'https://example.invalid/a',
     publishedAt: '2026-11-20', region: ['11590'], seen_hash: 'h1',
@@ -88,7 +107,8 @@ describe.skipIf(!url)('admin routes (DB)', () => {
     const [r] = await sql`select asset_max, income_pct_by_household, verified from eligibility_rules where notice_id = ${id}`;
     expect(r).toMatchObject({ asset_max: '337000000', verified: true });
     expect(r!.income_pct_by_household).toMatchObject({ 1: 120, 2: 100, 8: 100 });
-    expect((await app.request(`/api/notices/${id}`)).status).toBe(200);
+    const body = (await (await app.request(`/api/notices/${id}`)).json()) as { verified: boolean };
+    expect(body.verified).toBe(true);
   });
 
   it('본문이 바뀌면 "다시 확인"에 뜨고, 다시 저장하면 빠진다', async () => {
