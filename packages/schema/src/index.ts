@@ -1,21 +1,8 @@
-// DB enum과 같은 값. 바꿀 때는 마이그레이션도 함께 바꾼다.
+// DB enum과 같은 값은 constants.ts. 바꿀 때는 마이그레이션도 함께 바꾼다.
 import { z } from 'zod';
+import { HOMELESS_SCOPES, INCOME_BASES, TARGET_GROUPS } from './constants.js';
 
-export const HOUSING_TYPES = ['youth_safe_public', 'youth_safe_private', 'happy_house', 'youth_purchase_rental', 'other'] as const;
-export const SCHEDULE_KINDS = ['announce', 'apply_start', 'apply_end', 'doc_submit', 'doc_result', 'winner', 'contract', 'move_in'] as const;
-export const TARGET_GROUPS = ['youth', 'student', 'newlywed', 'general'] as const;
-export const NOTICE_STATUSES = ['upcoming', 'open', 'closed', 'cancelled'] as const;
-export const PARSE_STATUSES = ['pending', 'llm_parsed', 'verified', 'rejected'] as const;
-export const HOMELESS_SCOPES = ['self', 'household', 'none'] as const;
-export const INCOME_BASES = ['median', 'urban_worker'] as const;
-export const WATCH_TARGETS = ['notice', 'complex', 'region'] as const;
-export const NOTIFY_CHANNELS = ['email', 'toss'] as const;
-
-export type HousingType = (typeof HOUSING_TYPES)[number];
-export type ScheduleKind = (typeof SCHEDULE_KINDS)[number];
-export type TargetGroup = (typeof TARGET_GROUPS)[number];
-export type HomelessScope = (typeof HOMELESS_SCOPES)[number];
-export type IncomeBasis = (typeof INCOME_BASES)[number];
+export * from './constants.js';
 
 /** 시군구 5자리 코드. 시도 전체는 뒤 세 자리가 000 */
 export const regionCode = z.string().regex(/^[0-9]{5}$/);
@@ -75,3 +62,4 @@ export const incomeStandard = z.object({
   monthlyAmount: z.number(), // 원, 100% 기준 월액
 });
 export type IncomeStandard = z.infer<typeof incomeStandard>;
+
