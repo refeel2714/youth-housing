@@ -95,7 +95,7 @@ from (values
 join notices n on n.external_id = v.ext
 join complexes c on c.name = v.cname;
 
--- 자격 규칙(DEV-001 만). 숫자는 화면 확인용 예시값
+-- 자격 규칙. 숫자는 화면·30초 진단 확인용 예시값(실제 공고 기준 아님). DEV-005·006 은 규칙 없음(정리 전)
 insert into eligibility_rules (notice_id, target_group, age_min, age_max, age_ref_date, homeless_scope,
                                income_basis, income_year, income_pct_by_household, asset_max, car_value_max,
                                extra, source_clause, verified)
@@ -103,5 +103,27 @@ select n.id, 'youth', 19, 39, n.published_at, 'household', 'median', 2026,
        '{"1":150,"2":150,"3":150}'::jsonb, 251000000, 38030000, '{"unmarriedOnly":true}'::jsonb,
        '(예시) 만 19~39세 무주택 미혼 청년, 소득 기준중위소득 150% 이하', true
 from notices n where n.external_id = 'DEV-001';
+
+insert into eligibility_rules (notice_id, target_group, variant, age_min, age_max, age_ref_date, residence_codes,
+                               homeless_scope, income_basis, income_year, income_pct_by_household, asset_max,
+                               car_value_max, extra, source_clause, verified)
+select n.id, v.tg::target_group, v.variant, v.amin, v.amax, n.published_at, v.res, v.hs::homeless_scope,
+       v.ib::income_basis, v.iy, v.pct::jsonb, v.asset, v.car, v.extra::jsonb, v.clause, true
+from (values
+  -- 마포 민간: 서울 거주, 본인 무주택, 중위 120%
+  ('DEV-002', 'youth', '', 19, 39, array['11000'], 'self', 'median', 2026, '{"1":120,"2":120}', 241000000, null::bigint,
+   '{"unmarriedOnly":true}', '(예시) 서울 거주 만 19~39세 본인 무주택 미혼, 기준중위소득 120% 이하'),
+  -- 영통 행복주택: 청년(도시근로자 기준, 기준표 미입력 → 소득은 확인 필요) + 대학생
+  ('DEV-003', 'youth', '', 19, 39, null, 'household', 'urban_worker', 2025, '{"1":100,"2":100}', 254000000, 38030000,
+   '{"unmarriedOnly":true}', '(예시) 만 19~39세 무주택 미혼, 도시근로자 월평균소득 100% 이하'),
+  ('DEV-003', 'student', '', null, null, null, 'household', null, null, null, 101000000, 0,
+   '{"studentOnly":true,"unmarriedOnly":true}', '(예시) 대학생·취업준비생 무주택 미혼, 자산 1억 100만 원 이하'),
+  -- 인천 연수 매입임대: 인천 거주, 중위 100%, 1·2순위 구분
+  ('DEV-004', 'youth', '1순위', 19, 39, array['28000'], 'self', 'median', 2026, '{"1":100,"2":100,"3":100}', 254000000, 38030000,
+   '{"unmarriedOnly":true}', '(예시) 인천 거주 만 19~39세 무주택 미혼, 기준중위소득 100% 이하'),
+  ('DEV-004', 'youth', '2순위', 19, 39, array['28000'], 'self', 'median', 2026, '{"1":150,"2":150,"3":150}', 254000000, 38030000,
+   '{"unmarriedOnly":true}', '(예시) 인천 거주 만 19~39세 무주택 미혼, 기준중위소득 150% 이하')
+) as v(ext, tg, variant, amin, amax, res, hs, ib, iy, pct, asset, car, extra, clause)
+join notices n on n.external_id = v.ext;
 
 commit;

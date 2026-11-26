@@ -1,7 +1,8 @@
 // 공개 API 통합 테스트. TEST_DATABASE_URL 이 있을 때만 돈다(마이그레이션·시드를 넣은 DB).
 // supabase/dev-fixtures.sql 을 넣고(DEV-% 공고를 갈아 끼움) 라우트를 호출한다.
 // 예: TEST_DATABASE_URL=postgres://postgres@localhost:5432/yh pnpm --filter @yh/api test
-import type { CalendarResponse, NoticeDetail, NoticeListResponse } from '@yh/schema';
+import { judgeNotice } from '@yh/eligibility';
+import type { CalendarResponse, EligibilityBundleResponse, NoticeDetail, NoticeListResponse } from '@yh/schema';
 import postgres from 'postgres';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -111,6 +112,35 @@ describe.skipIf(!url)('public routes (DB)', () => {
     expect((await app.request('/api/notices/not-a-uuid')).status).toBe(404);
     const preview = createApp({ sql: () => sql, showUnverified: true });
     expect((await preview.request(`/api/notices/${id}`)).status).toBe(200);
+  });
+
+  it('진단 묶음: 접수 중·예정·최근 마감 공고와 규칙, 기준표', async () => {
+    const body = await get<EligibilityBundleResponse>('/api/eligibility');
+    const items = dev(body.items);
+    const byExt = (part: string) => items.find(i => i.title.includes(part));
+    expect(items.some(i => i.title === '[예시] 미검수 공고')).toBe(false);
+    expect(byExt('강남구')?.status).toBe('closed'); // 25일 전 마감 → 포함
+    expect(byExt('수원영통')!.rules.map(r => r.targetGroup).sort()).toEqual(['student', 'youth']);
+    expect(byExt('고양')!.rules).toEqual([]);
+    expect(body.incomeStandards.some(s => s.basis === 'median' && s.year === 2026 && s.householdSize === 1)).toBe(true);
+  });
+
+  it('진단 묶음으로 판정: 마포 거주 1인 청년', async () => {
+    const body = await get<EligibilityBundleResponse>('/api/eligibility');
+    const ctx = { incomeStandards: body.incomeStandards, today: new Date().toISOString().slice(0, 10) };
+    const me = {
+      birthYear: 1998, birthMonth: 5, regionCode: '11440', homelessScope: 'household' as const, householdSize: 1,
+      incomeBand: 'i1', assetBand: 'a0', carBand: 'c0', isMarried: false, isStudent: false,
+    };
+    const verdict = (part: string) => {
+      const n = dev(body.items).find(i => i.title.includes(part))!;
+      return judgeNotice(n.rules, me, ctx).result;
+    };
+    expect(verdict('동대문구')).toBe('pass');
+    expect(verdict('마포구')).toBe('pass');
+    expect(verdict('수원영통')).toBe('unknown'); // 청년: 도시근로자 기준표 없음, 대학생: 학생 아님
+    expect(verdict('인천 연수구')).toBe('fail');  // 인천 거주 요건
+    expect(verdict('고양')).toBe('none');        // 규칙 정리 전
   });
 });
 

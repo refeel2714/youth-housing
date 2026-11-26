@@ -1,12 +1,14 @@
 import {
   TARGET_GROUP_LABELS, type EligibilityRule, type NoticeDetail as Detail, type NoticeUnitView,
 } from '@yh/schema/constants';
-import { useParams } from 'react-router-dom';
+import { judgeNotice, type JudgeResult, type Profile } from '@yh/eligibility';
+import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
-import { BackButton, Empty, ErrorState, ExternalButton, KindLabel, Loading, StatusBadge, TypeBadge } from '../components/ui';
+import { BackButton, Empty, ErrorState, ExternalButton, KindLabel, Loading, StatusBadge, TypeBadge, VerdictBadge } from '../components/ui';
 import { daysUntil, ddayLabel, fmtDate, todayKst } from '../lib/dates';
 import { fmtSchedule, fmtWon } from '../lib/format';
 import { useAsync } from '../lib/useAsync';
+import { useProfile } from '../profile/store';
 
 export function NoticeDetail() {
   const { id = '' } = useParams();
@@ -31,6 +33,9 @@ export function NoticeDetail() {
 
 function Body({ d }: { d: Detail }) {
   const today = todayKst();
+  const profile = useProfile();
+  // 내 조건은 기기에만 있으므로 상세가 내려 준 규칙·기준표로 여기서 판정한다
+  const mine = profile ? judgeNotice(d.rules, profile, { incomeStandards: d.incomeStandards, today }) : null;
   const target = d.status === 'open' ? d.applyEnd : d.status === 'upcoming' ? d.applyStart : null;
   const dday = target ? daysUntil(target.startDate, today) : null;
 
@@ -81,9 +86,14 @@ function Body({ d }: { d: Detail }) {
 
       {d.rules.length > 0 && (
         <section className="card">
-          <h3>신청 자격(요약)</h3>
-          {d.rules.map(r => <Rule key={`${r.targetGroup}-${r.variant}`} r={r} />)}
-          <p className="muted small">내 조건으로 자격을 확인하는 기능은 곧 추가돼요.</p>
+          <div className="card-head">
+            <h3>신청 자격(요약)</h3>
+            {mine && <VerdictBadge result={mine.result} />}
+          </div>
+          {mine
+            ? mine.rules.map(j => <Rule key={`${j.rule.targetGroup}-${j.rule.variant}`} r={j.rule} mine={j} />)
+            : d.rules.map(r => <Rule key={`${r.targetGroup}-${r.variant}`} r={r} />)}
+          <MineFooter profile={profile} />
         </section>
       )}
 
@@ -132,7 +142,20 @@ function Units({ units }: { units: NoticeUnitView[] }) {
   );
 }
 
-function Rule({ r }: { r: EligibilityRule }) {
+function MineFooter({ profile }: { profile: Profile | null }) {
+  if (!profile) {
+    return (
+      <Link to="/diagnose" className="btn btn-secondary btn-block">30초 진단하고 내 자격 확인하기</Link>
+    );
+  }
+  return (
+    <p className="muted small">
+      이 기기에 저장된 내 조건으로 판단했어요. <Link to="/diagnose" className="link">조건 수정</Link>
+    </p>
+  );
+}
+
+function Rule({ r, mine }: { r: EligibilityRule; mine?: JudgeResult }) {
   const lines: [string, string][] = [];
   if (r.ageMin !== null || r.ageMax !== null) {
     lines.push(['나이', `만 ${r.ageMin ?? ''}~${r.ageMax ?? ''}세${r.ageRefDate ? ` (${fmtDate(r.ageRefDate, true)} 기준)` : ''}`]);
@@ -155,10 +178,20 @@ function Rule({ r }: { r: EligibilityRule }) {
 
   return (
     <div className="rule">
-      <p className="rule-group">{TARGET_GROUP_LABELS[r.targetGroup]}{r.variant ? ` · ${r.variant}` : ''}</p>
+      <p className="rule-group">
+        {TARGET_GROUP_LABELS[r.targetGroup]}{r.variant ? ` · ${r.variant}` : ''}
+        {mine && <VerdictBadge result={mine.result} />}
+      </p>
       <dl>
         {lines.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
       </dl>
+      {mine && (
+        <ul className="checks">
+          {mine.reasons.filter(x => x.message).map(x => (
+            <li key={x.check} className={`v-${x.v}`}>{x.message}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -125,3 +125,13 @@ export interface NoticeDetail extends NoticeSummary {
 }
 
 export interface RegionView { code: string; sido: string; sigungu: string | null }
+
+/** 30초 진단 묶음(GET /api/eligibility). 판정은 화면에서 @yh/eligibility 로 한다 */
+export interface EligibilityNotice extends NoticeSummary {
+  rules: EligibilityRule[];
+}
+export interface EligibilityBundleResponse {
+  items: EligibilityNotice[];
+  /** items 의 규칙들이 참조하는 소득 기준표 */
+  incomeStandards: IncomeStandard[];
+}

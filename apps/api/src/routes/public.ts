@@ -1,11 +1,11 @@
-// 비로그인 공개 조회: 캘린더 월 보기, 공고 목록·상세, 지역 목록
+// 비로그인 공개 조회: 캘린더 월 보기, 공고 목록·상세, 30초 진단 묶음, 지역 목록
 import { db, type Sql } from '@yh/db';
 import type { CalendarResponse, NoticeListResponse } from '@yh/schema';
 import { Hono } from 'hono';
 import {
   currentMonthKst, isUuid, monthRange, parseCursor, parseLimit, parseRegions, parseStatuses, parseTypes,
 } from '../lib/params.js';
-import { calendar, getNotice, listNotices, listRegions } from '../queries.js';
+import { calendar, eligibilityBundle, getNotice, listNotices, listRegions } from '../queries.js';
 
 export interface PublicDeps {
   sql?: () => Sql;
@@ -58,6 +58,12 @@ export function publicRoutes(deps: PublicDeps = {}) {
     if (!notice) return c.json({ error: '공고를 찾을 수 없습니다' }, 404);
     c.header('Cache-Control', 'public, max-age=60');
     return c.json(notice);
+  });
+
+  // GET /eligibility — 30초 진단용 공고·규칙·기준표 묶음. 사용자 조건은 받지 않는다(판정은 기기에서)
+  r.get('/eligibility', async c => {
+    c.header('Cache-Control', 'public, max-age=300');
+    return c.json(await eligibilityBundle(sql(), showUnverified));
   });
 
   r.get('/regions', async c => {

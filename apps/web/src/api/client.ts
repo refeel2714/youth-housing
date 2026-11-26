@@ -1,6 +1,6 @@
 // API fetch 래퍼. 웹은 같은 출처(VITE_API_BASE 비움), 토스 미니앱은 API 전체 주소를 넣어 빌드한다.
 import type {
-  CalendarResponse, HousingType, NoticeDetail, NoticeListResponse, NoticeStatus,
+  CalendarResponse, EligibilityBundleResponse, HousingType, NoticeDetail, NoticeListResponse, NoticeStatus, RegionView,
 } from '@yh/schema/constants';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
@@ -27,9 +27,13 @@ const csv = (xs: string[]) => (xs.length ? xs.join(',') : undefined);
 export const api = {
   calendar: (month: string, f: Filter, signal?: AbortSignal) =>
     get<CalendarResponse>('/calendar', { month, regions: csv(f.regions), types: csv(f.types) }, signal),
-  notices: (o: Filter & { status: NoticeStatus[]; q?: string; cursor?: string }, signal?: AbortSignal) =>
+  notices: (o: Filter & { status: NoticeStatus[]; q?: string; cursor?: string; limit?: number }, signal?: AbortSignal) =>
     get<NoticeListResponse>('/notices', {
       status: csv(o.status), regions: csv(o.regions), types: csv(o.types), q: o.q, cursor: o.cursor,
+      limit: o.limit ? String(o.limit) : undefined,
     }, signal),
+  /** 30초 진단 묶음. 내 조건은 보내지 않고 화면에서 판정한다 */
+  eligibility: (signal?: AbortSignal) => get<EligibilityBundleResponse>('/eligibility', {}, signal),
+  regions: (signal?: AbortSignal) => get<{ items: RegionView[] }>('/regions', {}, signal),
   notice: (id: string, signal?: AbortSignal) => get<NoticeDetail>(`/notices/${encodeURIComponent(id)}`, {}, signal),
 };

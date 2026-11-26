@@ -2,7 +2,7 @@
 // PUBLIC_SHOW_UNVERIFIED=1 이면 미검수(pending·llm_parsed)도 보여 준다(개발·수집 결과 확인용, 운영 금지).
 import type { Sql } from '@yh/db';
 import type {
-  CalendarItem, EligibilityRule, HousingType, IncomeStandard, NoticeDetail, NoticeStatus,
+  CalendarItem, EligibilityBundleResponse, EligibilityRule, HousingType, IncomeStandard, NoticeDetail, NoticeStatus,
   NoticeSummary, NoticeUnitView, RegionView, ScheduleView,
 } from '@yh/schema';
 
@@ -180,35 +180,11 @@ export async function getNotice(sql: Sql, id: string, showUnverified: boolean): 
       from notice_units u left join complexes c on c.id = u.complex_id
       where u.notice_id = ${id}
       order by c.name nulls last, u.target_group, u.area_m2 nulls last, u.unit_type`,
-    sql<{
-      target_group: EligibilityRule['targetGroup']; variant: string; age_min: number | null; age_max: number | null;
-      age_ref_date: string | null; residence_codes: string[] | null; homeless_scope: EligibilityRule['homelessScope'];
-      income_basis: EligibilityRule['incomeBasis']; income_year: number | null;
-      income_pct_by_household: Record<string, number> | null; asset_max: string | null; car_value_max: string | null;
-      extra: EligibilityRule['extra']; source_clause: string | null; verified: boolean;
-    }[]>`
-      select target_group, variant, age_min, age_max, to_char(age_ref_date, 'YYYY-MM-DD') as age_ref_date,
-             residence_codes, homeless_scope, income_basis, income_year, income_pct_by_household,
-             asset_max, car_value_max, extra, source_clause, verified
-      from eligibility_rules where notice_id = ${id} order by target_group, variant`,
+    rulesFor(sql, [id]),
   ]);
 
-  const num = (v: string | null) => (v === null ? null : Number(v));
-  const ruleViews: EligibilityRule[] = rules.map(r => ({
-    targetGroup: r.target_group, variant: r.variant, ageMin: r.age_min, ageMax: r.age_max,
-    ageRefDate: r.age_ref_date, residenceCodes: r.residence_codes, homelessScope: r.homeless_scope,
-    incomeBasis: r.income_basis, incomeYear: r.income_year, incomePctByHousehold: r.income_pct_by_household,
-    assetMax: num(r.asset_max), carValueMax: num(r.car_value_max), extra: r.extra ?? {},
-    sourceClause: r.source_clause, verified: r.verified,
-  }));
-
-  const keys = [...new Set(ruleViews.filter(r => r.incomeBasis && r.incomeYear).map(r => `${r.incomeYear}:${r.incomeBasis}`))];
-  const incomeStandards = keys.length === 0 ? [] : await sql<{
-    year: number; basis: IncomeStandard['basis']; variant: string; household_size: number; monthly_amount: string;
-  }[]>`
-    select year, basis, variant, household_size, monthly_amount from income_standards
-    where (year::text || ':' || basis::text) = any(${keys}::text[])
-    order by year, basis, variant, household_size`;
+  const ruleViews = rules.map(r => r.rule);
+  const incomeStandards = await standardsFor(sql, ruleViews);
 
   return {
     ...summaryView(row),
@@ -221,9 +197,78 @@ export async function getNotice(sql: Sql, id: string, showUnverified: boolean): 
         : null,
     })),
     rules: ruleViews,
-    incomeStandards: incomeStandards.map(s => ({
-      year: s.year, basis: s.basis, variant: s.variant, householdSize: s.household_size, monthlyAmount: Number(s.monthly_amount),
-    })),
+    incomeStandards,
+  };
+}
+
+const num = (v: string | null) => (v === null ? null : Number(v));
+
+interface RuleRow {
+  notice_id: string;
+  target_group: EligibilityRule['targetGroup']; variant: string; age_min: number | null; age_max: number | null;
+  age_ref_date: string | null; residence_codes: string[] | null; homeless_scope: EligibilityRule['homelessScope'];
+  income_basis: EligibilityRule['incomeBasis']; income_year: number | null;
+  income_pct_by_household: Record<string, number> | null; asset_max: string | null; car_value_max: string | null;
+  extra: EligibilityRule['extra']; source_clause: string | null; verified: boolean;
+}
+
+/** 공고들의 판정 규칙 */
+async function rulesFor(sql: Sql, noticeIds: string[]): Promise<{ noticeId: string; rule: EligibilityRule }[]> {
+  if (noticeIds.length === 0) return [];
+  const rows = await sql<RuleRow[]>`
+    select notice_id, target_group, variant, age_min, age_max, to_char(age_ref_date, 'YYYY-MM-DD') as age_ref_date,
+           residence_codes, homeless_scope, income_basis, income_year, income_pct_by_household,
+           asset_max, car_value_max, extra, source_clause, verified
+    from eligibility_rules where notice_id = any(${noticeIds}::uuid[]) order by notice_id, target_group, variant`;
+  return rows.map(r => ({
+    noticeId: r.notice_id,
+    rule: {
+      targetGroup: r.target_group, variant: r.variant, ageMin: r.age_min, ageMax: r.age_max,
+      ageRefDate: r.age_ref_date, residenceCodes: r.residence_codes, homelessScope: r.homeless_scope,
+      incomeBasis: r.income_basis, incomeYear: r.income_year, incomePctByHousehold: r.income_pct_by_household,
+      assetMax: num(r.asset_max), carValueMax: num(r.car_value_max), extra: r.extra ?? {},
+      sourceClause: r.source_clause, verified: r.verified,
+    },
+  }));
+}
+
+/** 규칙들이 참조하는 연도·기준의 소득 기준표 */
+async function standardsFor(sql: Sql, rules: EligibilityRule[]): Promise<IncomeStandard[]> {
+  const keys = [...new Set(rules.filter(r => r.incomeBasis && r.incomeYear).map(r => `${r.incomeYear}:${r.incomeBasis}`))];
+  if (keys.length === 0) return [];
+  const rows = await sql<{
+    year: number; basis: IncomeStandard['basis']; variant: string; household_size: number; monthly_amount: string;
+  }[]>`
+    select year, basis, variant, household_size, monthly_amount from income_standards
+    where (year::text || ':' || basis::text) = any(${keys}::text[])
+    order by year, basis, variant, household_size`;
+  return rows.map(s => ({
+    year: s.year, basis: s.basis, variant: s.variant, householdSize: s.household_size, monthlyAmount: Number(s.monthly_amount),
+  }));
+}
+
+/**
+ * 30초 진단용 묶음: 판정 대상 공고 + 규칙 + 기준표. 판정은 화면(브라우저)에서 한다(조건이 기기 밖으로 나가지 않게).
+ * 대상: 접수 중·예정 + 접수가 끝난 지 RECENT_DAYS 일 안 된 공고(캘린더의 지난 일정에도 표시가 붙도록). 취소 제외.
+ */
+export async function eligibilityBundle(sql: Sql, showUnverified: boolean, recentDays = 60): Promise<EligibilityBundleResponse> {
+  const f: PublicFilter = { regions: null, types: null, showUnverified };
+  const rows = await sql<SummaryRow[]>`
+    select * from (
+      ${summarySelect(sql)}
+      where ${visible(sql, f)}
+    ) t
+    where t.status in ('open', 'upcoming')
+       or (t.status = 'closed'
+           and coalesce((t.apply_end->>'starts_at')::timestamptz, t.published_at::timestamptz)
+               >= now() - make_interval(days => ${recentDays}))
+    order by case t.status when 'open' then 0 when 'upcoming' then 1 else 2 end, t.published_at desc nulls last, t.id`;
+  const rules = await rulesFor(sql, rows.map(r => r.id));
+  const byNotice = new Map<string, EligibilityRule[]>();
+  for (const r of rules) byNotice.set(r.noticeId, [...(byNotice.get(r.noticeId) ?? []), r.rule]);
+  return {
+    items: rows.map(r => ({ ...summaryView(r), rules: byNotice.get(r.id) ?? [] })),
+    incomeStandards: await standardsFor(sql, rules.map(r => r.rule)),
   };
 }
 
