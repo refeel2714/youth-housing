@@ -26,7 +26,7 @@ pnpm --filter @yh/web build:toss   # 토스 미니앱용 빌드(dist-toss)
 ```
 
 DB: `supabase link` 후 `supabase db push`, 시드는 처음 한 번 `psql "$DIRECT_URL" -f supabase/seed.sql`.
-환경변수는 `.env.example` 참고.
+환경변수는 `.env.example` 참고. 저장소 루트에 `.env`를 두면 `dev:api`·수집기 스크립트(`--env-file-if-exists`)와 웹(`envDir`)이 자동으로 읽는다.
 
 ## 화면·공개 API
 

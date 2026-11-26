@@ -7,6 +7,8 @@ const target = process.env.VITE_TARGET === 'toss' ? 'toss' : 'web';
 
 export default defineConfig({
   base: process.env.VITE_ROUTER_BASE ?? '/',
+  // VITE_API_BASE 등은 저장소 루트의 .env 하나에서 읽는다
+  envDir: '../..',
   plugins: [react()],
   resolve: {
     alias: { '@platform': fileURLToPath(new URL(`./src/platform/${target}.ts`, import.meta.url)) },
