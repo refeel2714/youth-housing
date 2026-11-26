@@ -4,6 +4,8 @@ import type { Platform } from './types';
 export const platform: Platform = {
   name: 'toss',
   async login() { throw new Error('toss login not implemented'); },
+  // TODO: SDK의 openURL 로 외부 브라우저 열기. 연동 전에는 WebView 안에서 이동한다
+  openExternal(url) { window.location.href = url; },
   storage: {
     get(key) { try { return localStorage.getItem(key); } catch { return null; } },
     set(key, value) { try { localStorage.setItem(key, value); } catch { /* */ } },
