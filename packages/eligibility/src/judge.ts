@@ -8,8 +8,9 @@ import type { EligibilityRule, JudgeContext, JudgeResult, Profile } from './type
 
 /**
  * 공고 × 대상군 규칙 하나에 대한 판정.
- * 하나라도 fail → fail, 전부 pass 이고 검수된 규칙 → pass, 그 외 → unknown.
- * 검수 전 규칙(verified=false)은 pass 를 내지 않는다.
+ * 하나라도 fail → fail, 전부 pass → pass, 그 외 → unknown.
+ * 검수 전 규칙(verified=false, 본문에서 자동 정리한 조건)도 같은 기준으로 판정한다.
+ * 화면은 rule.verified 를 보고 "자동 정리된 조건 기준"임을 따로 알린다(isAutoRule).
  */
 export function judge(rule: EligibilityRule, p: Profile, ctx: JudgeContext): JudgeResult {
   const reasons = [
@@ -23,8 +24,11 @@ export function judge(rule: EligibilityRule, p: Profile, ctx: JudgeContext): Jud
   ];
   const result = reasons.some(r => r.v === 'fail')
     ? 'fail'
-    : reasons.every(r => r.v === 'pass') && rule.verified
+    : reasons.every(r => r.v === 'pass')
       ? 'pass'
       : 'unknown';
   return { result, reasons };
 }
+
+/** 운영자가 검수하지 않은(자동 정리된) 규칙 */
+export const isAutoRule = (rule: EligibilityRule) => !rule.verified;

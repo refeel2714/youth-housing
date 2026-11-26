@@ -87,4 +87,19 @@ pnpm --filter @yh/collector start         # DATABASE_URL 에 적재, sources.las
 - 소스: `LH_API`(LH 분양임대공고 API, 서울·경기·인천 임대 중 청년 관련 유형), `SEOUL_HOUSING`(서울주거포털 청년안심주택 모집공고).
 - 공고는 `(source_id, external_id)`로 upsert. 새 공고·본문이 바뀐 미검수 공고는 `parse_status='pending'`으로 검수 대기열에 들어가고, 본문의 "■ 라벨 : 날짜" 줄에서 뽑은 일정이 `schedules`에 들어간다. 검수 완료 공고는 상태와 본문만 갱신하고 일정은 건드리지 않는다(본문 해시가 승인 때와 다르면 검수 화면 "다시 확인"). 미검수 공고도 본문이 그대로면 상태만 바꿔 검수 화면 임시 저장을 덮지 않는다.
 - 국내 공공 사이트는 해외 IP를 막을 수 있으므로 수집기는 국내에서 도는 곳(PC 등)에서 실행해도 된다.
-- DB 통합 테스트: 마이그레이션·시드를 넣은 DB를 `TEST_DATABASE_URL`로 주면 `test/store.db.test.ts`가 돈다.
+- DB 통합 테스트: 마이그레이션·시드를 넣은 DB를 `TEST_DATABASE_URL`로 주면 `test/*.db.test.ts`가 돈다.
+
+## 본문 자동 정리(Claude)
+
+```sh
+pnpm --filter @yh/collector parse                    # 정리 안 된 미검수 공고(기본 30건)
+pnpm --filter @yh/collector parse -- --id <공고 uuid>  # 그 공고만 다시 정리
+pnpm --filter @yh/collector parse -- --dry-run         # DB 에 쓰지 않고 결과만 출력(API 는 호출)
+```
+
+- `ANTHROPIC_API_KEY`가 있으면 수집(`start`)이 끝난 뒤 자동으로 돈다(`PARSE_AFTER_COLLECT=0`이면 안 돎). 모델은 `PARSE_MODEL`(기본 `claude-opus-5-5`), 한 번에 `PARSE_MAX_PER_RUN`건.
+- 대상: 미검수(`pending`·`llm_parsed`) 공고 중 본문 해시(`content_hash`)가 `parsed_hash`와 다른 것. 새 공고·본문이 바뀐 공고만 다시 부른다. 같은 본문·프롬프트·모델의 이전 결과(`notice_parses.input_hash`)가 있으면 재사용한다.
+- 결과: 자격 규칙을 통째로 바꾸고 `verified=false`로 둔다. 일정은 수집기가 뽑은 것을 믿고 그 공고에 없는 종류만 더한다(서울 공고처럼 일정이 본문에만 있으면 이걸로 자동 공개 조건이 채워진다). 공고는 `llm_parsed`가 된다.
+- 판정: 자동 정리 규칙도 검수 규칙과 같은 기준으로 지원 가능/어려움을 낸다. 앱은 "공고 본문에서 자동 정리한 조건"이라고 같이 보여 준다.
+- 검수 화면에서 저장하면 `parsed_hash`에 그 본문 해시가 남아, 본문이 바뀌기 전까지 자동 정리가 고친 조건을 덮지 않는다. "다시 자동 정리" 버튼은 `parsed_hash`를 비워 다음 실행 때 다시 정리한다.
+- 값 검사(`parse/convert.ts`): 날짜 형식, 나이 10~80, 금액이 만원 단위로 잘못 옮겨진 경우, 거주 요건 지역을 코드로 못 바꾼 규칙, 불완전한 소득 기준은 버리고 경고를 `notice_parses.output.warnings`에 남긴다(검수 화면 "자동 정리 결과").

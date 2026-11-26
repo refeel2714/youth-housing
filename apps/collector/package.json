@@ -6,17 +6,20 @@
   "scripts": {
     "start": "tsx --env-file-if-exists=../../.env src/run.ts",
     "collect:dry": "tsx --env-file-if-exists=../../.env src/run.ts --dry-run",
+    "parse": "tsx --env-file-if-exists=../../.env src/parse.ts",
     "test": "vitest run",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@yh/db": "workspace:*",
-    "@yh/schema": "workspace:*"
+    "@yh/schema": "workspace:*",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "postgres": "^3.4.5",
     "tsx": "^4.19.2",
-    "vitest": "^2.1.8",
-    "postgres": "^3.4.5"
+    "vitest": "^2.1.8"
   }
 }

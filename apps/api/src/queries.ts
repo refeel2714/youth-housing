@@ -2,7 +2,7 @@
 // - 검수 완료(verified)
 // - 자동 공개(autoPublish): 미검수(pending·llm_parsed)라도 접수 시작·마감 일정이 뽑힌 공고.
 //   'all' 은 모든 소스, 'api' 는 날짜가 정형화된 API 소스(LH)만, 'off' 는 검수 완료만.
-//   미검수 공고의 자격 규칙은 verified=false 라 판정이 pass 를 내지 않는다(원문 확인 필요).
+//   미검수 공고의 자격 규칙(수집기가 본문에서 자동 정리한 것)은 verified=false 로 내려가고, 화면이 "자동 정리"로 표시한다.
 // PUBLIC_SHOW_UNVERIFIED=1 이면 반려 말고 전부 보여 준다(개발·수집 결과 확인용, 운영 금지).
 import type { Sql } from '@yh/db';
 import type {

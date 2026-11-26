@@ -1,5 +1,5 @@
 // 30초 진단 결과: 접수 중·예정 공고를 지원 가능 / 확인 필요 / 정리 중 / 어려움으로 나눠 보여 준다.
-import { ASSET_BANDS, CAR_BANDS, findBand, INCOME_BANDS, keyReasons, type NoticeVerdict, type Profile } from '@yh/eligibility';
+import { ASSET_BANDS, CAR_BANDS, findBand, INCOME_BANDS, isAutoRule, keyReasons, type NoticeVerdict, type Profile } from '@yh/eligibility';
 import { TARGET_GROUP_LABELS, type RegionView } from '@yh/schema/constants';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -86,7 +86,8 @@ export function DiagnoseResult() {
           })}
 
           <p className="muted small disclaimer">
-            공고문에서 옮긴 요건과 입력한 구간으로 판단한 결과예요. 실제 자격은 신청 기관 심사로 정해지니 원문을 꼭 확인해 주세요.
+            공고문에서 옮긴 요건과 입력한 구간으로 판단한 결과예요. 일부 공고는 요건을 본문에서 자동으로 정리해 틀릴 수 있어요.
+            실제 자격은 신청 기관 심사로 정해지니 원문을 꼭 확인해 주세요.
           </p>
           <button type="button" className="text-btn" onClick={() => { clearProfile(); f.setMine(false); }}>
             이 기기에 저장된 조건 지우기
@@ -106,6 +107,8 @@ function ResultCard({ j }: { j: Judged }) {
   const passGroups = judgement.rules.filter(r => r.result === 'pass')
     .map(r => `${TARGET_GROUP_LABELS[r.rule.targetGroup]}${r.rule.variant ? ` ${r.rule.variant}` : ''}`);
   const reasons = best && judgement.result !== 'pass' ? keyReasons(best).slice(0, 2) : [];
+  // 판정에 쓴 규칙이 운영자 검수 전(본문에서 자동 정리)이면 알린다
+  const auto = best !== undefined && judgement.result !== 'fail' && isAutoRule(best.rule);
 
   return (
     <Link to={`/notices/${n.id}`} className="list-item">
@@ -120,6 +123,7 @@ function ResultCard({ j }: { j: Judged }) {
       {reasons.length > 0 && (
         <ul className="reasons">{reasons.map(r => <li key={r}>{r}</li>)}</ul>
       )}
+      {auto && <p className="small muted">공고 본문에서 자동 정리한 조건 기준이에요</p>}
     </Link>
   );
 }

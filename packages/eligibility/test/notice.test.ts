@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { judgeNotice, keyReasons, type EligibilityRule, type JudgeContext, type Profile } from '../src/index.js';
+import { isAutoRule, judgeNotice, keyReasons, type EligibilityRule, type JudgeContext, type Profile } from '../src/index.js';
 
 const ctx: JudgeContext = {
   today: '2026-11-26',
@@ -41,10 +41,10 @@ describe('요약 사유', () => {
     const j = judgeNotice([youth], { ...me, homelessScope: undefined }, ctx);
     expect(keyReasons(j.rules[0]!)).toEqual([expect.stringContaining('주택 보유 여부')]);
   });
-  it('검수 전 규칙은 검수 중 안내', () => {
+  it('검수 전(자동 정리) 규칙도 판정하고, 규칙에서 자동 여부를 알 수 있다', () => {
     const j = judgeNotice([{ ...youth, verified: false }], me, ctx);
-    expect(j.result).toBe('unknown');
-    expect(keyReasons(j.rules[0]!)[0]).toContain('검수 중');
+    expect(j.result).toBe('pass');
+    expect(isAutoRule(j.rules[0]!.rule)).toBe(true);
   });
   it('pass 면 사유 없음', () => expect(keyReasons(judgeNotice([youth], me, ctx).rules[0]!)).toEqual([]));
 });

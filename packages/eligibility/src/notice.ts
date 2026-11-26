@@ -32,6 +32,5 @@ export function judgeNotice(rules: EligibilityRule[], p: Profile, ctx: JudgeCont
 export function keyReasons(j: RuleJudgement): string[] {
   const want = j.result === 'fail' ? 'fail' : 'unknown';
   const msgs = j.reasons.filter(r => r.v === want && r.message).map(r => r.message!);
-  if (j.result === 'unknown' && msgs.length === 0 && !j.rule.verified) return ['자격 요건을 아직 검수 중이에요. 원문을 확인해 주세요'];
   return msgs;
 }

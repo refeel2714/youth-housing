@@ -10,7 +10,7 @@ import {
   type AdminConfig,
 } from './auth.js';
 import { formFromBody, parseNoticeForm } from './form.js';
-import { QUEUE_TABS, listQueue, loadNotice, loadRegions, queueCounts, saveNotice, setReviewState, type QueueTab } from './queries.js';
+import { QUEUE_TABS, listQueue, loadNotice, loadRegions, queueCounts, requestReparse, saveNotice, setReviewState, type QueueTab } from './queries.js';
 import { autoPublishFromEnv } from '../routes/public.js';
 import type { Visibility } from '../queries.js';
 import { loginPage, noticePage, notFoundPage, queuePage } from './views.js';
@@ -28,6 +28,7 @@ type Env = { Variables: { reviewer: string } };
 const FLASH: Record<string, string> = {
   saved: '저장했습니다.', approved: '검수 완료로 저장했습니다.', rejected: '앱에서 내렸습니다.',
   unpublished: '검수 완료를 풀고 미검수로 돌렸습니다.', restored: '다시 미검수로 돌렸습니다. 접수 일정이 있으면 앱에 나옵니다.',
+  reparse: '다음 수집(또는 pnpm --filter @yh/collector parse) 때 본문을 다시 자동 정리합니다. 지금 자격 조건은 그때 바뀝니다.',
 };
 
 function sameOrigin(c: Context): boolean {
@@ -146,6 +147,11 @@ export function adminRoutes(deps: AdminDeps = {}) {
       const ok = await setReviewState(sql(), id, action === 'reject' ? 'rejected' : 'pending', form.reviewNote.slice(0, 500) || null, reviewer);
       if (!ok) return c.html(notFoundPage(reviewer), 404);
       return action === 'reject' ? c.redirect('/admin?done=rejected', 303) : back('unpublished');
+    }
+    if (action === 'reparse') {
+      const ok = await requestReparse(sql(), id);
+      if (!ok) return c.text('검수 완료·내린 공고는 다시 자동 정리하지 않습니다', 409);
+      return back('reparse');
     }
     if (action !== 'save' && action !== 'approve') return c.text('잘못된 요청입니다', 400);
 
