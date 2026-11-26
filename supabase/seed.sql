@@ -114,6 +114,20 @@ insert into income_standards (year, basis, variant, household_size, monthly_amou
   (2026, 'median', 'default', 8, 10474348, '보건복지부고시 제2025-135호(2026년 기준 중위소득)')
 on conflict (year, basis, variant, household_size) do nothing;
 
--- TODO: income_standards 도시근로자 가구원수별 월평균소득(basis='urban_worker').
---       공고마다 "전년도 도시근로자 가구당 월평균소득(○○년 적용기준)"을 쓰고 1·2인 보정값이 따로 있어,
---       국토교통부·LH 공식 기준표(1~8인, 100%)를 확인한 뒤 옮길 것(추측 입력 금지).
+-- 도시근로자 가구원수별 가구당 월평균소득(100%, 월액). basis='urban_worker', year 는 통계 연도(공고 문구 "2025년도 ~ 월평균소득").
+-- 2025년도 값: 2026년 공고(약 2026.3월~)에 적용. 출처: LH청약플러스 임대가이드 > 국민임대 > 입주자격 소득기준 표
+-- (apply.lh.or.kr cntntsId=1023, 2026-11-26 확인). 3~8인은 표의 100% 금액 그대로.
+-- 1·2인은 LH 표가 가산 비율(1인 120%, 2인 110%)로만 적혀 있어, 같은 값을 100%로 게시한 공공 기관 표
+-- (제주특별자치도개발공사 공공임대주택 포털 소득기준)에서 옮김. LH 120%·90%·70% 금액을 나눠도 같은 값이 나온다.
+-- 공고의 1·2인 가산(예: 1인 120%)은 규칙(eligibility_rules.income_pct_by_household)에 넣는다.
+insert into income_standards (year, basis, variant, household_size, monthly_amount, source_note) values
+  (2025, 'urban_worker', 'default', 1, 3813363, '2025년도 도시근로자 가구원수별 월평균소득(LH 소득기준 표 역산·공공기관 게시값)'),
+  (2025, 'urban_worker', 'default', 2, 5866270, '2025년도 도시근로자 가구원수별 월평균소득(LH 소득기준 표 역산·공공기관 게시값)'),
+  (2025, 'urban_worker', 'default', 3, 8168429, '2025년도 도시근로자 가구원수별 월평균소득(LH 청약플러스 소득기준 표)'),
+  (2025, 'urban_worker', 'default', 4, 8802202, '2025년도 도시근로자 가구원수별 월평균소득(LH 청약플러스 소득기준 표)'),
+  (2025, 'urban_worker', 'default', 5, 9326985, '2025년도 도시근로자 가구원수별 월평균소득(LH 청약플러스 소득기준 표)'),
+  (2025, 'urban_worker', 'default', 6, 9906263, '2025년도 도시근로자 가구원수별 월평균소득(LH 청약플러스 소득기준 표)'),
+  (2025, 'urban_worker', 'default', 7, 10485541, '2025년도 도시근로자 가구원수별 월평균소득(LH 청약플러스 소득기준 표)'),
+  (2025, 'urban_worker', 'default', 8, 11064819, '2025년도 도시근로자 가구원수별 월평균소득(LH 청약플러스 소득기준 표)')
+on conflict (year, basis, variant, household_size) do nothing;
+-- 2024년도 값(2026년 초 공고 일부가 사용)은 필요해지면 같은 방식으로 추가.
