@@ -1,0 +1,17 @@
+{
+  "name": "youth-housing",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "dev:api": "pnpm --filter @yh/api dev",
+    "dev:web": "pnpm --filter @yh/web dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
