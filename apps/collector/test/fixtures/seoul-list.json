@@ -1,0 +1,43 @@
+{
+ "_note": "soco.seoul.go.kr /youth/pgm/home/yohome/bbsListJson.json 응답 일부(2026-11-26 수집). 화면에 안 쓰는 필드와 공공 항목의 인라인 style 속성은 줄임.",
+ "pagingInfo": {
+  "totRow": 570,
+  "totPage": 57,
+  "pageIndex": 1,
+  "rowCount": 10
+ },
+ "resultList": [
+  {
+   "rnum": 1,
+   "boardId": 6889,
+   "bbsId": "BMSR00015",
+   "nttSj": "[민간임대] 회기역 하트리움 추가모집공고",
+   "atchFileId": "bc4bd28b5422432ebed557718c6263ab",
+   "optn1": "2026-11-26",
+   "optn2": "2",
+   "optn3": "(주)두진",
+   "optn4": "2026-11-30",
+   "optn5": "2",
+   "delAt": "N",
+   "useAt": "Y",
+   "topAt": "N",
+   "content": "<p>회기역 하트리움 청년안심주택 입주자 추가모집공고문(공공지원민간임대)을 붙임과 같이 게시합니다.&nbsp;</p>\r\n<p><span>자세한 내용은 첨부파일의 모집공고문을 확인하시기 바랍니다.</span></p>\r\n<p><span></span></p>\r\n<h2><span></span></h2>\r\n<p>&nbsp;</p>\r\n<p><b>[단지개요]</b></p>\r\n<p>■단지명 : 회기역 하트리움 청년주택</p>\r\n<p>■주택위치 : 서울특별시 동대문구 망우로 46 (1호선, 경의중앙선, 경춘선 회기역 2번 출구)</p>\r\n<p>■공급호수 : 총 582세대 중 금회 추가모집 공공지원민간임대 예비자 모집</p>\r\n<h2><span></span></h2>\r\n<p>■사업주체 : (주)두진</p>\r\n<p>■시공사 : (주)두진건설</p>\r\n<p><br /></p>\r\n<h2><span>[공급일정]</span></h2>\r\n<p>■모집공고 : ‘26. 11. 26. (목)</p>\r\n<p><span><b>■청약신청 : ‘26. 11. 30. (월) 09:00 ~ 17:00</b></span></p>\r\n<p><span>■서류심사 대상자 발표 : </span><span>‘26. 12. 01. (화) 16:00</span></p>\r\n<p><span>■서류사본제출(이메일) : 추후 개별 연락</span></p>\r\n<p><span>■계약체결 및 원본서류제출 : 추후 개별 연락</span></p>\r\n<p><span>&nbsp;</span></p>\r\n<h2><span>[청약신청]</span></h2>\r\n<p>■ 청약신청 페이지 : <b><u><span><a href=\"https://www.doojin2030.co.kr/\" target=\"_blank\" title=\"회기역 하트리움 추가모집 신청\">https://www.doojin2030.co.kr</a></span></u></b></p>\r\n<p>■ 문의전화 : 02-2249-9783</p>\r\n<p>■ 운영시간 : 월~금 09:00~17:00 (점심시간 : 12:00~13:00)</p>\r\n<p>&nbsp;</p>\r\n"
+  },
+  {
+   "rnum": 1,
+   "boardId": 6624,
+   "bbsId": "BMSR00015",
+   "nttSj": "[공공임대] 2026년 2차 청년안심주택 모집공고",
+   "atchFileId": "a51ae32dfb81421a9eaaaa16019223eb",
+   "optn1": "2026-07-31",
+   "optn2": "1",
+   "optn3": "SH 맞춤주택공급부",
+   "optn4": "2026-08-11",
+   "optn5": null,
+   "delAt": "N",
+   "useAt": "Y",
+   "topAt": "N",
+   "content": "<p class=\"0\" data-orgsize=\"14px\"><span lang=\"EN-US\">2026</span><span>년 2</span><span>차 청년안심주택</span><span lang=\"EN-US\">(</span><span>공공임대</span><span lang=\"EN-US\">) </span><span>입주자 모집공고</span><span lang=\"EN-US\">(2026.07.31.)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span lang=\"EN-US\">(</span><span>구</span><span lang=\"EN-US\">, </span><span>역세권청년주택</span><span lang=\"EN-US\">)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\">&nbsp;</p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>모집공고일</span><span lang=\"EN-US\">: 2026.07.31.(</span><span>화</span><span lang=\"EN-US\">)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>공급호수 </span><span lang=\"EN-US\">: 581</span><span>세대</span><span lang=\"EN-US\">(</span><span>신규공급 349</span><span>세대</span><span lang=\"EN-US\">, </span><span>재공급 232</span><span>세대</span><span lang=\"EN-US\">)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span lang=\"EN-US\">- </span><span>단지 및 공급호수 등 자세한 사항은 공고문을 확인하여 주시기 바랍니다</span><span lang=\"EN-US\">.</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>신청자격</span><span lang=\"EN-US\">: </span><span>입주자모집공고일</span><span lang=\"EN-US\">(2026.07.31.) </span><span>현재 </span><span lang=\"EN-US\">19</span><span>세 이상 </span><span lang=\"EN-US\">39</span><span>세 이하로서 무주택요건을 충족하고 계층별 소득</span><span lang=\"EN-US\">, </span><span>총자산 요건을 충족하는 청년 및 신혼부부</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><b><span>■ </span><span>청약 접수일</span><span lang=\"EN-US\">: 2026. 08. 11. (화</span><span lang=\"EN-US\">) 10:00 ~ 2026. 08. 13. (목</span><span lang=\"EN-US\">) 17:00</span></b></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span lang=\"EN-US\">- </span><span>인터넷 및 모바일로만 신청 가능합니다</span><span lang=\"EN-US\">.</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>※ </span><span>청약 접수 시작 시간과 마감 시간에는 접속자 증가로 시스템이 원활하지 않을 수 있습니다</span><span lang=\"EN-US\">.</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>서류심사대상자 발표</span><span lang=\"EN-US\">: 2026. 08. 21.(금</span><span lang=\"EN-US\">)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>심사대상자 서류제출기간</span><span lang=\"EN-US\">: 2026. 08. 31. (월</span><span lang=\"EN-US\">) ~ 2026. 09. 02.(수)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span lang=\"EN-US\">- </span><span>등기우편으로 접수</span><span lang=\"EN-US\">(</span><span>일반우편으로는 서류를 접수받지 않으니 유의하시기 바랍니다</span><span lang=\"EN-US\">.)</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>당첨자발표</span><span lang=\"EN-US\">: 2026. 12. 11.(금</span><span lang=\"EN-US\">) 예정</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>기타</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span lang=\"EN-US\">- </span><span>기타 자세한 사항은 첨부된 공고문을 확인하여 주시기 바랍니다</span><span lang=\"EN-US\">.</span></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><br /><span>■ 청약신청 페이지: </span><a href=\"https://www.i-sh.co.kr/app/index.do\" target=\"_blank\" title=\"공공임대 청약신청 페이지 바로가기\"><b><span>SH 인터넷청약시스템 (i-sh.co.kr)</span></b></a></p>\r\n<p class=\"0\" data-orgsize=\"14px\"><span>■ </span><span>신청문의</span><span lang=\"EN-US\">: </span><span>서울주택도시공사 콜센터 </span><span lang=\"EN-US\">T.1600-3456</span></p>\r\n"
+  }
+ ]
+}
