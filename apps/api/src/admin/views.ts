@@ -14,7 +14,7 @@ const TAB_LABELS: Record<QueueTab, string> = {
   queue: '미검수', recheck: '다시 확인', verified: '검수 완료', rejected: '내린 공고',
 };
 const PARSE_LABELS: Record<ParseStatus, string> = {
-  pending: '미검수', llm_parsed: '자동 파싱됨', verified: '검수 완료', rejected: '내림',
+  pending: '미검수', llm_parsed: '자동 정리됨', verified: '검수 완료', rejected: '내림',
 };
 const HOMELESS_LABELS: Record<string, string> = { self: '본인 무주택', household: '세대 전원 무주택', none: '조건 없음' };
 const INCOME_LABELS: Record<string, string> = { median: '기준중위소득', urban_worker: '도시근로자 월평균소득' };
@@ -255,7 +255,7 @@ ${hasErrors ? html`<p class="err-box">입력을 확인해 주세요. ${e.schedul
 <p><a href="${f.urlOriginal}" target="_blank" rel="noopener noreferrer">원문 페이지 열기 ↗</a>
 ${f.urlApply ? html` · <a href="${f.urlApply}" target="_blank" rel="noopener noreferrer">신청 페이지 ↗</a>` : ''}</p>
 ${meta.rawText ? html`<pre>${highlight(meta.rawText)}</pre>` : html`<p class="hint">수집된 본문이 없습니다. 원문 페이지에서 확인해 주세요.</p>`}
-${latestParse ? html`<details style="margin-top:16px"><summary class="meta">자동 파싱 결과 (${latestParse.model}, ${latestParse.createdAt})</summary>
+${latestParse ? html`<details style="margin-top:16px"><summary class="meta">자동 정리 결과 (${latestParse.model}, ${latestParse.createdAt})</summary>
 <pre>${JSON.stringify(latestParse.output, null, 2)}</pre></details>` : ''}
 ${unitsTable(units)}
 </section>
@@ -279,6 +279,7 @@ ${unitsTable(units)}
 <template id="sched-tpl">${scheduleRow(emptySchedule(), '__I__', {})}</template>
 
 <h2>자격 조건 <span class="hint">비운 칸은 "조건 없음"으로 판정합니다. 공고에 없는 조건만 비워 두세요.</span></h2>
+${!verified && meta.parseStatus === 'llm_parsed' && rules.length > 0 ? html`<p class="hint">Claude 가 본문에서 자동으로 정리한 조건입니다. 앱에는 "자동 정리"로 표시되고 판정에 그대로 쓰입니다. 원문과 다르면 고쳐서 저장하세요(저장하면 본문이 바뀌기 전까지 자동 정리가 덮지 않습니다).</p>` : ''}
 <div id="rule-rows">${rules.map((r, i) => ruleBlock(r, i, e))}</div>
 ${rules.length === 0 ? html`<p class="hint" id="no-rules">아직 자격 조건이 없습니다. 판정에 쓰려면 대상별로 추가해 주세요.</p>` : ''}
 <input type="hidden" name="r_count" id="r_count" value="${rules.length}">
@@ -293,7 +294,8 @@ ${verified
     ? html`<button class="primary" name="action" value="approve">저장</button>
 <button name="action" value="unpublish" formnovalidate>미검수로 되돌리기</button>`
     : html`<button class="primary" name="action" value="approve">검수 완료로 저장</button>
-<button name="action" value="save">저장(미검수 유지)</button>`}
+<button name="action" value="save">저장(미검수 유지)</button>
+${meta.rawText ? html`<button name="action" value="reparse" formnovalidate data-confirm="지금 입력한 일정·자격 조건 대신, 다음 실행 때 본문을 다시 자동 정리할까요?">다시 자동 정리</button>` : ''}`}
 <span class="gap"></span>
 ${meta.parseStatus === 'rejected'
     ? html`<span class="hint">앱에서 내린 공고입니다. 검수 완료로 저장하면 다시 나옵니다.</span>`

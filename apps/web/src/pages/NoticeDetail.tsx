@@ -1,7 +1,7 @@
 import {
   TARGET_GROUP_LABELS, type EligibilityRule, type NoticeDetail as Detail, type NoticeUnitView,
 } from '@yh/schema/constants';
-import { judgeNotice, type JudgeResult, type Profile } from '@yh/eligibility';
+import { isAutoRule, judgeNotice, type JudgeResult, type Profile } from '@yh/eligibility';
 import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { BackButton, Empty, ErrorState, ExternalButton, KindLabel, Loading, StatusBadge, TypeBadge, VerdictBadge } from '../components/ui';
@@ -116,6 +116,9 @@ function Body({ d }: { d: Detail }) {
             <h3>신청 자격(요약)</h3>
             {mine && <VerdictBadge result={mine.result} />}
           </div>
+          {d.rules.some(isAutoRule) && (
+            <p className="muted small">공고 본문에서 자동으로 정리한 조건이에요. 틀릴 수 있으니 신청 전에 원문으로 확인해 주세요.</p>
+          )}
           {mine
             ? mine.rules.map(j => <Rule key={`${j.rule.targetGroup}-${j.rule.variant}`} r={j.rule} mine={j} />)
             : d.rules.map(r => <Rule key={`${r.targetGroup}-${r.variant}`} r={r} />)}

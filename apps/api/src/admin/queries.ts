@@ -252,6 +252,7 @@ export type SaveAction = 'save' | 'approve';
  * - approve: 검수 완료로 바꾸고, 검수자가 본 본문 해시(seenHash)를 승인본으로 남긴다.
  *   검수 중에 수집기가 본문을 바꿨다면 해시가 달라 곧바로 "다시 확인"에 뜬다. 규칙도 모두 확인됨으로 둔다.
  * - save: 상태는 그대로(검수 완료 공고는 approve 로만 저장한다).
+ * 둘 다 parsed_hash 에 검수자가 본 본문 해시를 남겨, 본문이 그대로인 동안은 자동 정리(수집기)가 고친 조건을 덮지 않게 한다.
  * 일정은 (kind, seq) 로 upsert 해서 id 를 유지한다(나중에 붙을 알림이 지워지지 않게).
  */
 export async function saveNotice(
@@ -269,7 +270,7 @@ export async function saveNotice(
       update notices set
         title = ${input.title}, housing_type = ${input.housingType}, url_original = ${input.urlOriginal},
         url_apply = ${input.urlApply}, published_at = ${input.publishedAt}, status = ${status},
-        region_codes = ${regionCodes}, review_note = ${input.reviewNote}
+        region_codes = ${regionCodes}, review_note = ${input.reviewNote}, parsed_hash = ${o.seenHash}
         ${approve ? tx`, parse_status = 'verified', verified_at = now(), verified_by = ${o.reviewer},
                        verified_content_hash = ${o.seenHash}` : tx``}
       where id = ${id}`;
@@ -300,6 +301,14 @@ export async function saveNotice(
     }
     return 'ok' as const;
   });
+}
+
+/** 다음 자동 정리 때 이 공고 본문을 다시 정리하게 한다(미검수 공고만) */
+export async function requestReparse(sql: Sql, id: string): Promise<boolean> {
+  const rows = await sql`
+    update notices set parsed_hash = null
+    where id = ${id} and parse_status in ('pending', 'llm_parsed') returning id`;
+  return rows.length > 0;
 }
 
 /** 반려(메모만 저장) 또는 검수 대기로 되돌리기(공개 내리기) */

@@ -94,6 +94,21 @@ describe.skipIf(!url)('admin routes (DB)', () => {
     expect(n!.parse_status).toBe('pending');
   });
 
+  it('미검수 저장은 본 본문 해시를 parsed_hash 로 남겨 자동 정리가 덮지 않게, "다시 자동 정리"는 비운다', async () => {
+    await sql`update notices set parse_status = 'llm_parsed' where id = ${id}`;
+    const res = await post(`/admin/notices/${id}`, form({ action: 'save' }));
+    expect(res.status).toBe(303);
+    expect(await (await get(`/admin/notices/${id}`)).text()).toContain('자동으로 정리한 조건');
+    const [n] = await sql`select parse_status, parsed_hash from notices where id = ${id}`;
+    expect(n).toMatchObject({ parse_status: 'llm_parsed', parsed_hash: 'h1' });
+    const [r] = await sql`select verified from eligibility_rules where notice_id = ${id}`;
+    expect(r!.verified).toBe(false);
+    const again = await post(`/admin/notices/${id}`, { action: 'reparse' });
+    expect(again.headers.get('location')).toBe(`/admin/notices/${id}?done=reparse`);
+    const [m] = await sql`select parsed_hash from notices where id = ${id}`;
+    expect(m!.parsed_hash).toBeNull();
+  });
+
   it('승인: 일정 upsert(id 유지)·규칙·지역 확장·공개 API 노출', async () => {
     const [before] = await sql<{ id: string }[]>`select id from schedules where notice_id = ${id} and kind = 'apply_start'`;
     const res = await post(`/admin/notices/${id}`, form({ action: 'approve' }));

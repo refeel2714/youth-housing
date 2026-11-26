@@ -99,7 +99,7 @@ describe('최종 판정', () => {
   });
 
   it('모두 충족 + 검수됨 → pass', () => expect(judge(r, full, ctx).result).toBe('pass'));
-  it('검수 전 규칙은 pass 대신 unknown', () => expect(judge({ ...r, verified: false }, full, ctx).result).toBe('unknown'));
+  it('검수 전(자동 정리) 규칙도 모두 충족하면 pass', () => expect(judge({ ...r, verified: false }, full, ctx).result).toBe('pass'));
   it('하나라도 fail 이면 fail', () => expect(judge(r, { ...full, assetBand: 'a5' }, ctx).result).toBe('fail'));
   it('fail 이 있으면 unknown 보다 fail 이 우선', () =>
     expect(judge({ ...r, verified: false }, { ...full, incomeBand: undefined, assetBand: 'a5' }, ctx).result).toBe('fail'));
