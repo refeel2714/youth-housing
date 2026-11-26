@@ -2,10 +2,12 @@ import type { NoticeStatus, NoticeSummary } from '@yh/schema/constants';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Empty, ErrorState, FilterBar, StatusBadge, TypeBadge } from '../components/ui';
+import type { NoticeVerdict } from '@yh/eligibility';
+import { Empty, ErrorState, FilterBar, StatusBadge, TypeBadge, VerdictBadge } from '../components/ui';
 import { daysUntil, ddayLabel, todayKst } from '../lib/dates';
 import { useFilter } from '../lib/filter';
 import { fmtSchedule } from '../lib/format';
+import { hiddenByMine, useEligibility } from '../profile/useEligibility';
 
 const TABS: { key: string; label: string; status: NoticeStatus[] }[] = [
   { key: 'active', label: '접수 중·예정', status: ['open', 'upcoming'] },
@@ -20,6 +22,9 @@ export function NoticeList() {
   const q = params.get('q') ?? '';
   const [draft, setDraft] = useState(q);
   const f = useFilter();
+  const el = useEligibility();
+  const verdicts = el.status === 'ok' ? el.map : null;
+  const mineOn = f.mine && el.status !== 'no-profile';
 
   const [items, setItems] = useState<NoticeSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -28,7 +33,9 @@ export function NoticeList() {
 
   const load = (after: string | null, signal?: AbortSignal) => {
     setState({ loading: true, error: null });
-    return api.notices({ ...f.filter, status: tab.status, q: q || undefined, cursor: after ?? undefined }, signal).then(
+    // 맞춤 필터는 화면에서 거르므로 한 번에 더 많이 받는다
+    const limit = mineOn ? 50 : undefined;
+    return api.notices({ ...f.filter, status: tab.status, q: q || undefined, cursor: after ?? undefined, limit }, signal).then(
       res => {
         setItems(prev => (after ? [...prev, ...res.items] : res.items));
         setCursor(res.nextCursor);
@@ -44,7 +51,15 @@ export function NoticeList() {
     void load(null, ac.signal);
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab.key, q, f.key, reload]);
+  }, [tab.key, q, f.key, mineOn, reload]);
+
+  const shown = mineOn ? items.filter(n => !hiddenByMine(verdicts, n.id)) : items;
+  const hiddenCount = items.length - shown.length;
+  // 받은 페이지가 전부 걸러졌으면 다음 페이지를 이어서 받는다
+  useEffect(() => {
+    if (mineOn && !state.loading && !state.error && shown.length === 0 && cursor) void load(cursor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mineOn, state.loading, state.error, shown.length, cursor]);
 
   const setParam = (k: string, v: string) => {
     const p = new URLSearchParams(params);
@@ -80,10 +95,16 @@ export function NoticeList() {
       ) : (
         <>
           <ul className="list">
-            {items.map(n => <li key={n.id}><NoticeCard n={n} /></li>)}
+            {shown.map(n => <li key={n.id}><NoticeCard n={n} verdict={verdicts?.get(n.id)?.judgement.result} /></li>)}
           </ul>
-          {!state.loading && items.length === 0 && (
-            <Empty>{q ? `'${q}'에 맞는 공고가 없어요.` : '조건에 맞는 공고가 없어요.'}</Empty>
+          {!state.loading && shown.length === 0 && (
+            <Empty>{q ? `'${q}'에 맞는 공고가 없어요.` : mineOn ? '내 조건으로 지원할 수 있는 공고가 없어요.' : '조건에 맞는 공고가 없어요.'}</Empty>
+          )}
+          {mineOn && hiddenCount > 0 && !state.loading && (
+            <p className="muted small center">
+              지원이 어려운 공고 {hiddenCount}건은 숨겼어요.{' '}
+              <button type="button" className="text-btn inline" onClick={() => f.setMine(false)}>모두 보기</button>
+            </p>
           )}
           {state.loading && <div className="state" aria-busy="true">불러오는 중…</div>}
           {!state.loading && cursor && (
@@ -95,13 +116,14 @@ export function NoticeList() {
   );
 }
 
-function NoticeCard({ n }: { n: NoticeSummary }) {
+function NoticeCard({ n, verdict }: { n: NoticeSummary; verdict?: NoticeVerdict }) {
   const today = todayKst();
   const target = n.status === 'open' ? n.applyEnd : n.status === 'upcoming' ? n.applyStart : null;
   const dday = target ? daysUntil(target.startDate, today) : null;
   return (
     <Link to={`/notices/${n.id}`} className="list-item">
       <div className="row">
+        {verdict && <VerdictBadge result={verdict} />}
         <StatusBadge status={n.status}>{dday !== null && dday >= 0 ? ` ${ddayLabel(dday)}` : ''}</StatusBadge>
         <TypeBadge type={n.housingType} />
       </div>

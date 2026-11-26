@@ -1,4 +1,4 @@
-// 캘린더·목록이 같이 쓰는 지역·유형 필터. 기기 저장소에 남겨 두고 다음에 열 때 그대로 쓴다.
+// 캘린더·목록이 같이 쓰는 지역·유형·내 조건 맞춤 필터. 기기 저장소에 남겨 두고 다음에 열 때 그대로 쓴다.
 import { platform } from '@platform';
 import { HOUSING_TYPES, type HousingType } from '@yh/schema/constants';
 import { useCallback, useState } from 'react';
@@ -19,16 +19,17 @@ export const TYPE_CHIPS: { label: string; types: HousingType[] }[] = [
 ];
 
 const KEY = 'yh.filter.v1';
-interface Stored { sido: string; types: HousingType[] }
+/** mine: 30초 진단 결과로 '어려움' 공고를 숨김 */
+interface Stored { sido: string; types: HousingType[]; mine: boolean }
 
 function load(): Stored {
   try {
     const v = JSON.parse(platform.storage.get(KEY) ?? 'null') as Partial<Stored> | null;
     const sido = SIDO_OPTIONS.some(o => o.code === v?.sido) ? v!.sido! : '';
     const types = (v?.types ?? []).filter((t): t is HousingType => (HOUSING_TYPES as readonly string[]).includes(t));
-    return { sido, types };
+    return { sido, types, mine: v?.mine === true };
   } catch {
-    return { sido: '', types: [] };
+    return { sido: '', types: [], mine: false };
   }
 }
 
@@ -42,9 +43,11 @@ export function useFilter() {
   return {
     sido: state.sido,
     types: state.types,
+    mine: state.mine,
     filter,
     key: `${state.sido}|${state.types.join(',')}`,
     setSido: (sido: string) => update({ ...state, sido }),
+    setMine: (mine: boolean) => update({ ...state, mine }),
     hasTypes: (ts: HousingType[]) => ts.every(t => state.types.includes(t)),
     toggleTypes: (ts: HousingType[]) => {
       const on = ts.every(t => state.types.includes(t));

@@ -2,11 +2,12 @@ import type { CalendarItem } from '@yh/schema/constants';
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { Empty, ErrorState, FilterBar, KindDot, KindLabel, StatusBadge } from '../components/ui';
+import { Empty, ErrorState, FilterBar, KindDot, KindLabel, StatusBadge, VerdictBadge } from '../components/ui';
 import { addMonths, eachDate, fmtDate, fmtMonth, isMonth, monthGrid, todayKst } from '../lib/dates';
 import { useFilter } from '../lib/filter';
 import { fmtSchedule } from '../lib/format';
 import { useAsync } from '../lib/useAsync';
+import { hiddenByMine, useEligibility, type Judged } from '../profile/useEligibility';
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 const MAX_DOTS = 3;
@@ -17,18 +18,22 @@ export function Calendar() {
   const month = isMonth(params.get('month')) ? params.get('month')! : today.slice(0, 7);
   const f = useFilter();
   const res = useAsync(s => api.calendar(month, f.filter, s), [month, f.key]);
+  const el = useEligibility();
+  const verdicts = el.status === 'ok' ? el.map : null;
+  const mineOn = f.mine && el.status !== 'no-profile';
 
   // 날짜별 일정. 여러 날 일정(서류 제출 기간 등)은 걸친 날마다 넣는다
   const byDate = useMemo(() => {
     const m = new Map<string, CalendarItem[]>();
     for (const it of res.data?.items ?? []) {
+      if (mineOn && hiddenByMine(verdicts, it.noticeId)) continue;
       for (const d of eachDate(it.startDate, it.endDate)) {
         if (!d.startsWith(month)) continue;
         m.set(d, [...(m.get(d) ?? []), it]);
       }
     }
     return m;
-  }, [res.data, month]);
+  }, [res.data, month, mineOn, verdicts]);
 
   const selectedParam = params.get('date');
   const selected =
@@ -91,14 +96,18 @@ export function Calendar() {
         <h2>{fmtDate(selected)}{selected === today ? ' · 오늘' : ''}</h2>
         {res.status === 'loading' && <div className="state" aria-busy="true">불러오는 중…</div>}
         {res.status === 'error' && <ErrorState error={res.error} onRetry={res.reload} />}
-        {res.status === 'ok' && <DayItems items={byDate.get(selected) ?? []} monthEmpty={res.data.items.length === 0} />}
+        {res.status === 'ok' && (
+          <DayItems items={byDate.get(selected) ?? []} monthEmpty={byDate.size === 0} mine={mineOn} verdicts={verdicts} />
+        )}
       </section>
     </main>
   );
 }
 
-function DayItems({ items, monthEmpty }: { items: CalendarItem[]; monthEmpty: boolean }) {
-  if (monthEmpty) return <Empty>이 달에는 조건에 맞는 일정이 없어요.</Empty>;
+function DayItems({ items, monthEmpty, mine, verdicts }: {
+  items: CalendarItem[]; monthEmpty: boolean; mine: boolean; verdicts: Map<string, Judged> | null;
+}) {
+  if (monthEmpty) return <Empty>이 달에는 {mine ? '내 조건으로 지원할 수 있는' : '조건에 맞는'} 일정이 없어요.</Empty>;
   if (items.length === 0) return <Empty>이 날은 일정이 없어요. 점이 있는 날을 눌러 보세요.</Empty>;
   return (
     <ul className="list">
@@ -111,6 +120,7 @@ function DayItems({ items, monthEmpty }: { items: CalendarItem[]; monthEmpty: bo
             </div>
             <p className="title">{it.title}</p>
             <div className="row">
+              {verdicts?.get(it.noticeId) && <VerdictBadge result={verdicts.get(it.noticeId)!.judgement.result} />}
               <StatusBadge status={it.status} />
               {it.note && <span className="muted small">{it.note}</span>}
             </div>
