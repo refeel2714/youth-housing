@@ -1,6 +1,7 @@
 // 검수 화면 쿼리. 공개 조회(src/queries.ts)와 달리 parse_status 와 상관없이 모든 공고를 다룬다.
 import type { Sql } from '@yh/db';
 import type { HousingType, NoticeStatus } from '@yh/schema/constants';
+import { visible, type Visibility } from '../queries.js';
 import { emptyRule, formatIncomePct, wonToMan, EXTRA_KEYS, type NoticeForm, type NoticeInput, type RuleForm } from './form.js';
 
 export type QueueTab = 'queue' | 'recheck' | 'verified' | 'rejected';
@@ -44,19 +45,22 @@ export interface QueueItem {
   verifiedBy: string | null;
   verifiedAt: string | null;
   reviewNote: string | null;
+  /** 지금 공개 화면(앱)에 나오는지 */
+  exposed: boolean;
 }
 
 const kstDate = (sql: Sql, col: string) => sql`to_char(${sql.unsafe(col)} at time zone 'Asia/Seoul', 'YYYY-MM-DD')`;
 const kstDateTime = (sql: Sql, col: string) => sql`to_char(${sql.unsafe(col)} at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI')`;
 
 /** 대기열은 접수 시작이 빠른(급한) 순, 나머지는 최근 순 */
-export async function listQueue(sql: Sql, tab: QueueTab, q: string | null, limit: number, offset: number):
+export async function listQueue(sql: Sql, tab: QueueTab, q: string | null, limit: number, offset: number, v: Visibility):
   Promise<{ items: QueueItem[]; hasMore: boolean }> {
   const like = q ? `%${q.replace(/[\\%_]/g, m => `\\${m}`)}%` : null;
   const rows = await sql<{
     id: string; title: string; housing_type: HousingType; parse_status: ParseStatus; source_name: string;
     published_at: string | null; apply_start: string | null; apply_end: string | null; schedule_count: number;
     rule_count: number; collected_at: string; verified_by: string | null; verified_at: string | null; review_note: string | null;
+    exposed: boolean;
   }[]>`
     select n.id, n.title, n.housing_type, n.parse_status, src.name as source_name,
            to_char(n.published_at, 'YYYY-MM-DD') as published_at,
@@ -67,7 +71,8 @@ export async function listQueue(sql: Sql, tab: QueueTab, q: string | null, limit
            (select count(*)::int from schedules s where s.notice_id = n.id) as schedule_count,
            (select count(*)::int from eligibility_rules r where r.notice_id = n.id) as rule_count,
            ${kstDateTime(sql, 'n.created_at')} as collected_at,
-           n.verified_by, ${kstDateTime(sql, 'n.verified_at')} as verified_at, n.review_note
+           n.verified_by, ${kstDateTime(sql, 'n.verified_at')} as verified_at, n.review_note,
+           (${visible(sql, v)}) as exposed
     from notices n join sources src on src.id = n.source_id
     where ${tabWhere(sql, tab)}
       and (${like}::text is null or n.title ilike ${like} or n.external_id = ${q})
@@ -83,7 +88,7 @@ export async function listQueue(sql: Sql, tab: QueueTab, q: string | null, limit
       id: r.id, title: r.title, housingType: r.housing_type, parseStatus: r.parse_status, sourceName: r.source_name,
       publishedAt: r.published_at, applyStart: r.apply_start, applyEnd: r.apply_end, scheduleCount: r.schedule_count,
       ruleCount: r.rule_count, collectedAt: r.collected_at, verifiedBy: r.verified_by, verifiedAt: r.verified_at,
-      reviewNote: r.review_note,
+      reviewNote: r.review_note, exposed: r.exposed,
     })),
   };
 }

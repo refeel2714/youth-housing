@@ -50,6 +50,9 @@ function Body({ d }: { d: Detail }) {
         <p className="muted small">
           {[d.regionNames.join(', '), d.sourceName, d.publishedAt && `${fmtDate(d.publishedAt, true)} 공고`].filter(Boolean).join(' · ')}
         </p>
+        {!d.verified && (
+          <p className="muted small">자동 수집된 공고예요. 일정이 원문과 다를 수 있으니 신청 전에 원문을 확인해 주세요.</p>
+        )}
       </section>
 
       <div className="cta">

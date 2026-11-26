@@ -5,17 +5,24 @@ import { Hono } from 'hono';
 import {
   currentMonthKst, isUuid, monthRange, parseCursor, parseLimit, parseRegions, parseStatuses, parseTypes,
 } from '../lib/params.js';
-import { calendar, eligibilityBundle, getNotice, listNotices, listRegions } from '../queries.js';
+import { calendar, eligibilityBundle, getNotice, listNotices, listRegions, type AutoPublish, type Visibility } from '../queries.js';
 
 export interface PublicDeps {
   sql?: () => Sql;
-  /** 미검수 공고도 보여 줄지(개발용). 기본은 PUBLIC_SHOW_UNVERIFIED=1 */
+  /** 미검수 공고도 전부 보여 줄지(개발용). 기본은 PUBLIC_SHOW_UNVERIFIED=1 */
   showUnverified?: boolean;
+  /** 미검수라도 접수 일정이 있으면 공개(queries.ts). 기본은 AUTO_PUBLISH, 없으면 'all' */
+  autoPublish?: AutoPublish;
+}
+
+export function autoPublishFromEnv(raw = process.env.AUTO_PUBLISH): AutoPublish {
+  return raw === 'api' || raw === 'off' ? raw : 'all';
 }
 
 export function publicRoutes(deps: PublicDeps = {}) {
   const sql = deps.sql ?? db;
   const showUnverified = deps.showUnverified ?? process.env.PUBLIC_SHOW_UNVERIFIED === '1';
+  const v: Visibility = { showUnverified, autoPublish: deps.autoPublish ?? autoPublishFromEnv() };
   const r = new Hono();
   const bad = (msg: string) => Response.json({ error: msg }, { status: 400 });
 
@@ -28,7 +35,7 @@ export function publicRoutes(deps: PublicDeps = {}) {
     const types = parseTypes(c.req.query('types'));
     if (regions === undefined) return bad('regions가 올바르지 않습니다');
     if (types === undefined) return bad('types가 올바르지 않습니다');
-    const items = await calendar(sql(), range.from, range.to, { regions, types, showUnverified });
+    const items = await calendar(sql(), range.from, range.to, { regions, types, ...v });
     c.header('Cache-Control', 'public, max-age=60');
     return c.json({ month, items } satisfies CalendarResponse);
   });
@@ -46,7 +53,7 @@ export function publicRoutes(deps: PublicDeps = {}) {
     if (limit === null) return bad('limit은 1~50 사이여야 합니다');
     if (offset === null) return bad('cursor가 올바르지 않습니다');
     const q = c.req.query('q')?.trim().slice(0, 50) || null;
-    const { items, hasMore } = await listNotices(sql(), { regions, types, statuses, q, limit, offset, showUnverified });
+    const { items, hasMore } = await listNotices(sql(), { regions, types, statuses, q, limit, offset, ...v });
     c.header('Cache-Control', 'public, max-age=60');
     return c.json({ items, nextCursor: hasMore ? String(offset + limit) : null } satisfies NoticeListResponse);
   });
@@ -54,7 +61,7 @@ export function publicRoutes(deps: PublicDeps = {}) {
   r.get('/notices/:id', async c => {
     const id = c.req.param('id');
     if (!isUuid(id)) return c.json({ error: '공고를 찾을 수 없습니다' }, 404);
-    const notice = await getNotice(sql(), id, showUnverified);
+    const notice = await getNotice(sql(), id, v);
     if (!notice) return c.json({ error: '공고를 찾을 수 없습니다' }, 404);
     c.header('Cache-Control', 'public, max-age=60');
     return c.json(notice);
@@ -63,7 +70,7 @@ export function publicRoutes(deps: PublicDeps = {}) {
   // GET /eligibility — 30초 진단용 공고·규칙·기준표 묶음. 사용자 조건은 받지 않는다(판정은 기기에서)
   r.get('/eligibility', async c => {
     c.header('Cache-Control', 'public, max-age=300');
-    return c.json(await eligibilityBundle(sql(), showUnverified));
+    return c.json(await eligibilityBundle(sql(), v));
   });
 
   r.get('/regions', async c => {

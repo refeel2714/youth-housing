@@ -129,7 +129,7 @@ function NoticeCard({ n, verdict }: { n: NoticeSummary; verdict?: NoticeVerdict 
       </div>
       <p className="title">{n.title}</p>
       <p className="muted small">
-        {[n.regionNames.join(', '), n.sourceName].filter(Boolean).join(' · ')}
+        {[n.regionNames.join(', '), n.sourceName, !n.verified && '자동 수집'].filter(Boolean).join(' · ')}
       </p>
       {(n.applyStart || n.applyEnd) && (
         <p className="small">

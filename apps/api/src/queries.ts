@@ -1,20 +1,38 @@
-// 공개 조회 쿼리. 화면에는 검수 완료(verified) 공고만 보인다.
-// PUBLIC_SHOW_UNVERIFIED=1 이면 미검수(pending·llm_parsed)도 보여 준다(개발·수집 결과 확인용, 운영 금지).
+// 공개 조회 쿼리. 화면에 나오는 공고:
+// - 검수 완료(verified)
+// - 자동 공개(autoPublish): 미검수(pending·llm_parsed)라도 접수 시작·마감 일정이 뽑힌 공고.
+//   'all' 은 모든 소스, 'api' 는 날짜가 정형화된 API 소스(LH)만, 'off' 는 검수 완료만.
+//   미검수 공고의 자격 규칙은 verified=false 라 판정이 pass 를 내지 않는다(원문 확인 필요).
+// PUBLIC_SHOW_UNVERIFIED=1 이면 반려 말고 전부 보여 준다(개발·수집 결과 확인용, 운영 금지).
 import type { Sql } from '@yh/db';
 import type {
   CalendarItem, EligibilityBundleResponse, EligibilityRule, HousingType, IncomeStandard, NoticeDetail, NoticeStatus,
   NoticeSummary, NoticeUnitView, RegionView, ScheduleView,
 } from '@yh/schema';
 
-export interface PublicFilter {
-  regions: string[] | null;
-  types: HousingType[] | null;
+export type AutoPublish = 'all' | 'api' | 'off';
+
+export interface Visibility {
   showUnverified: boolean;
+  autoPublish: AutoPublish;
 }
 
-/** parse_status 조건. rejected 는 언제나 뺀다 */
-const visible = (sql: Sql, f: PublicFilter) =>
-  f.showUnverified ? sql`n.parse_status <> 'rejected'` : sql`n.parse_status = 'verified'`;
+export interface PublicFilter extends Visibility {
+  regions: string[] | null;
+  types: HousingType[] | null;
+}
+
+/** 자동 공개 조건(미검수 공고 n 에 대해) */
+const autoPublished = (sql: Sql, mode: AutoPublish) => sql`
+  n.parse_status in ('pending', 'llm_parsed')
+  and exists (select 1 from schedules s0 where s0.notice_id = n.id and s0.kind in ('apply_start', 'apply_end'))
+  ${mode === 'api' ? sql`and exists (select 1 from sources s1 where s1.id = n.source_id and s1.method = 'api')` : sql``}`;
+
+/** parse_status 조건. rejected 는 언제나 뺀다(검수 화면에서도 노출 여부 표시에 씀) */
+export const visible = (sql: Sql, f: Visibility) =>
+  f.showUnverified ? sql`n.parse_status <> 'rejected'`
+  : f.autoPublish === 'off' ? sql`n.parse_status = 'verified'`
+  : sql`(n.parse_status = 'verified' or (${autoPublished(sql, f.autoPublish)}))`;
 
 const filters = (sql: Sql, f: PublicFilter) => sql`
   ${visible(sql, f)}
@@ -88,7 +106,7 @@ export async function calendar(sql: Sql, from: Date, to: Date, f: PublicFilter):
 
 interface SummaryRow {
   id: string; title: string; housing_type: HousingType; status: NoticeStatus; published_at: string | null;
-  region_codes: string[]; region_names: string[]; source_name: string;
+  verified: boolean; region_codes: string[]; region_names: string[]; source_name: string;
   url_original: string; url_apply: string | null;
   apply_start: ScheduleRow | null; apply_end: ScheduleRow | null;
 }
@@ -103,7 +121,7 @@ const scheduleJson = (sql: Sql, kind: 'apply_start' | 'apply_end') => sql`
 
 const summarySelect = (sql: Sql) => sql`
   select n.id, n.title, n.housing_type, ${statusExpr(sql)} as status,
-         to_char(n.published_at, 'YYYY-MM-DD') as published_at,
+         to_char(n.published_at, 'YYYY-MM-DD') as published_at, n.parse_status = 'verified' as verified,
          n.region_codes,
          coalesce((select array_agg(coalesce(r.sigungu, r.sido) order by r.code)
                      from regions r
@@ -125,7 +143,7 @@ const jsonSchedule = (j: ScheduleRow | null): ScheduleView | null =>
 
 const summaryView = (r: SummaryRow): NoticeSummary => ({
   id: r.id, title: r.title, housingType: r.housing_type, status: r.status, publishedAt: r.published_at,
-  regionCodes: r.region_codes, regionNames: r.region_names, sourceName: r.source_name,
+  verified: r.verified, regionCodes: r.region_codes, regionNames: r.region_names, sourceName: r.source_name,
   urlOriginal: r.url_original, urlApply: r.url_apply,
   applyStart: jsonSchedule(r.apply_start), applyEnd: jsonSchedule(r.apply_end),
 });
@@ -159,8 +177,8 @@ export async function listNotices(sql: Sql, o: ListOptions): Promise<{ items: No
   return { items: rows.slice(0, o.limit).map(summaryView), hasMore: rows.length > o.limit };
 }
 
-export async function getNotice(sql: Sql, id: string, showUnverified: boolean): Promise<NoticeDetail | null> {
-  const f: PublicFilter = { regions: null, types: null, showUnverified };
+export async function getNotice(sql: Sql, id: string, v: Visibility): Promise<NoticeDetail | null> {
+  const f: PublicFilter = { regions: null, types: null, ...v };
   const [row] = await sql<SummaryRow[]>`${summarySelect(sql)} where n.id = ${id} and ${visible(sql, f)}`;
   if (!row) return null;
 
@@ -251,8 +269,8 @@ async function standardsFor(sql: Sql, rules: EligibilityRule[]): Promise<IncomeS
  * 30초 진단용 묶음: 판정 대상 공고 + 규칙 + 기준표. 판정은 화면(브라우저)에서 한다(조건이 기기 밖으로 나가지 않게).
  * 대상: 접수 중·예정 + 접수가 끝난 지 RECENT_DAYS 일 안 된 공고(캘린더의 지난 일정에도 표시가 붙도록). 취소 제외.
  */
-export async function eligibilityBundle(sql: Sql, showUnverified: boolean, recentDays = 60): Promise<EligibilityBundleResponse> {
-  const f: PublicFilter = { regions: null, types: null, showUnverified };
+export async function eligibilityBundle(sql: Sql, v: Visibility, recentDays = 60): Promise<EligibilityBundleResponse> {
+  const f: PublicFilter = { regions: null, types: null, ...v };
   const rows = await sql<SummaryRow[]>`
     select * from (
       ${summarySelect(sql)}
