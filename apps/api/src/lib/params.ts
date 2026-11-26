@@ -36,6 +36,12 @@ export const parseTypes = (raw?: string) =>
 export const parseStatuses = (raw?: string) =>
   csv(raw, (v): v is NoticeStatus => (NOTICE_STATUSES as readonly string[]).includes(v));
 
+/** 공고 id 목록(관심 공고). 최대 100개 */
+export function parseIds(raw?: string): string[] | null | undefined {
+  const ids = csv(raw, (v): v is string => isUuid(v));
+  return ids && ids.length > 100 ? undefined : ids?.map(v => v.toLowerCase()) ?? ids;
+}
+
 export function parseLimit(raw: string | undefined, def = 20, max = 50): number | null {
   if (!raw) return def;
   const n = Number(raw);

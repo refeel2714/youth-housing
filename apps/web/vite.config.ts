@@ -11,5 +11,5 @@ export default defineConfig({
   resolve: {
     alias: { '@platform': fileURLToPath(new URL(`./src/platform/${target}.ts`, import.meta.url)) },
   },
-  server: { proxy: { '/api': 'http://localhost:8080' } },
+  server: { proxy: { '/api': 'http://localhost:8080', '/ics': 'http://localhost:8080' } },
 });

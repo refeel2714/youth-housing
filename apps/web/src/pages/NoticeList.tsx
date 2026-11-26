@@ -116,7 +116,7 @@ export function NoticeList() {
   );
 }
 
-function NoticeCard({ n, verdict }: { n: NoticeSummary; verdict?: NoticeVerdict }) {
+export function NoticeCard({ n, verdict }: { n: NoticeSummary; verdict?: NoticeVerdict }) {
   const today = todayKst();
   const target = n.status === 'open' ? n.applyEnd : n.status === 'upcoming' ? n.applyStart : null;
   const dday = target ? daysUntil(target.startDate, today) : null;

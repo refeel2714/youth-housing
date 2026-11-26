@@ -3,7 +3,7 @@ import { db, type Sql } from '@yh/db';
 import type { CalendarResponse, NoticeListResponse } from '@yh/schema';
 import { Hono } from 'hono';
 import {
-  currentMonthKst, isUuid, monthRange, parseCursor, parseLimit, parseRegions, parseStatuses, parseTypes,
+  currentMonthKst, isUuid, monthRange, parseIds, parseCursor, parseLimit, parseRegions, parseStatuses, parseTypes,
 } from '../lib/params.js';
 import { calendar, eligibilityBundle, getNotice, listNotices, listRegions, type AutoPublish, type Visibility } from '../queries.js';
 
@@ -40,7 +40,8 @@ export function publicRoutes(deps: PublicDeps = {}) {
     return c.json({ month, items } satisfies CalendarResponse);
   });
 
-  // GET /notices?status=open,upcoming&regions=&types=&q=&limit=20&cursor=
+  // GET /notices?status=open,upcoming&regions=&types=&ids=&q=&limit=20&cursor=
+  // ids: 관심 공고 목록 화면용(쉼표로 최대 100개)
   r.get('/notices', async c => {
     const regions = parseRegions(c.req.query('regions'));
     const types = parseTypes(c.req.query('types'));
@@ -52,8 +53,10 @@ export function publicRoutes(deps: PublicDeps = {}) {
     if (statuses === undefined) return bad('status가 올바르지 않습니다');
     if (limit === null) return bad('limit은 1~50 사이여야 합니다');
     if (offset === null) return bad('cursor가 올바르지 않습니다');
+    const ids = parseIds(c.req.query('ids'));
+    if (ids === undefined) return bad('ids가 올바르지 않습니다');
     const q = c.req.query('q')?.trim().slice(0, 50) || null;
-    const { items, hasMore } = await listNotices(sql(), { regions, types, statuses, q, limit, offset, ...v });
+    const { items, hasMore } = await listNotices(sql(), { regions, types, statuses, ids, q, limit, offset, ...v });
     c.header('Cache-Control', 'public, max-age=60');
     return c.json({ items, nextCursor: hasMore ? String(offset + limit) : null } satisfies NoticeListResponse);
   });

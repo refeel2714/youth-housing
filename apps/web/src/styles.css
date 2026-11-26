@@ -266,3 +266,19 @@ tr:last-child td { border-bottom: 0; }
 .checks .v-pass::before { content: '✓'; color: var(--k-winner); }
 .checks .v-unknown::before { content: '?'; color: var(--warn); }
 .checks .v-fail::before { content: '✕'; color: var(--k-apply_end); }
+
+/* 관심 */
+.watch-btn { margin-left: auto; border: 0; background: none; padding: 8px 4px 8px 8px; font-size: 15px; font-weight: 600; color: var(--sub); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.watch-btn span { font-size: 20px; line-height: 1; }
+.watch-btn.on { color: var(--text); }
+.watch-btn.on span { color: var(--k-contract); }
+.section-head { display: flex; align-items: center; }
+.section-head .head-link { border: 0; background: none; cursor: pointer; }
+.list-item.gone .title { color: var(--muted); }
+.region-picker { display: grid; gap: 12px; margin: 12px 0 4px; }
+.chip:disabled { opacity: 0.4; cursor: default; }
+.field.compact { padding: 16px 0 4px; border-top: 0; }
+.field.compact legend { font-size: 15px; }
+.feed-buttons { display: grid; gap: 8px; margin-top: 16px; }
+.feed-buttons p { margin: 0; }
+.error { color: var(--k-apply_end); }

@@ -150,6 +150,8 @@ const summaryView = (r: SummaryRow): NoticeSummary => ({
 
 export interface ListOptions extends PublicFilter {
   statuses: NoticeStatus[] | null;
+  /** 관심 공고만 */
+  ids?: string[] | null;
   q: string | null;
   limit: number;
   offset: number;
@@ -163,6 +165,7 @@ export async function listNotices(sql: Sql, o: ListOptions): Promise<{ items: No
       ${summarySelect(sql)}
       where ${filters(sql, o)}
         and (${like}::text is null or n.title ilike ${like})
+        and (${o.ids ?? null}::uuid[] is null or n.id = any(${o.ids ?? null}::uuid[]))
     ) t
     where (${o.statuses}::text[] is null or t.status = any(${o.statuses}::text[]))
     order by

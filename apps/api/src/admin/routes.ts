@@ -4,6 +4,7 @@ import { db, type Sql } from '@yh/db';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { isUuid } from '../lib/params.js';
+import { clientIp } from '../lib/request.js';
 import {
   ADMIN_COOKIE, LoginLimiter, SESSION_TTL_MS, adminConfigFromEnv, checkPassword, cleanName, signSession, verifySession,
   type AdminConfig,
@@ -39,9 +40,6 @@ function sameOrigin(c: Context): boolean {
     return false;
   }
 }
-
-const clientIp = (c: Context) =>
-  c.req.header('fly-client-ip') ?? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'local';
 
 export function adminRoutes(deps: AdminDeps = {}) {
   const sql = deps.sql ?? db;
